@@ -3,18 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GIGA LOTTO: $2.2B Challenge 1.5</title>
+  <title>GIGA LOTTO: $2.2B Challenge 1.6</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
-  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js">
-  // Set up deposit button event listener
-  document.getElementById("depositBtn").addEventListener("click", connectAndDeposit);
-
-  // Expose to global scope (if needed in future)
-  window.connectAndDeposit = connectAndDeposit;
-  window.withdrawWinnings = withdrawWinnings;
-  window.requestDraw = requestDraw;
-
-</script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
   <style>
     body {
       background: url("https://www.transparenttextures.com/patterns/asfalt-dark.png");
@@ -191,6 +182,7 @@
     <div class="wallet">
       <p><strong>🎟️ Enter the Pot</strong></p>
       <input type="number" id="ethAmount" placeholder="Amount in ETH" step="0.001" />
+      <!-- FIXED: Changed to ID instead of onclick -->
       <button id="depositBtn">Connect & Deposit</button>
     </div>
     <div class="user-dashboard" id="userDashboard" style="display:none;">
@@ -795,11 +787,11 @@
       }
     }
 
-    // Deposit ETH
+    // Deposit ETH - FIXED: Added initialization check
     async function connectAndDeposit() {
-      if (!contract) {
+      if (!web3 || !contract) {
         await initWeb3();
-        if (!contract) return;
+        if (!web3 || !contract) return;
       }
       
       const ethAmount = document.getElementById("ethAmount").value;
@@ -868,19 +860,11 @@
     window.addEventListener('load', async () => {
       await initWeb3();
       
-      // Set up button event listeners
+      // FIXED: Added event listener for deposit button
+      document.getElementById("depositBtn").addEventListener('click', connectAndDeposit);
       document.getElementById("withdrawBtn").addEventListener('click', withdrawWinnings);
       document.getElementById("requestDrawBtn").addEventListener('click', requestDraw);
     });
-  
-  // Set up deposit button event listener
-  document.getElementById("depositBtn").addEventListener("click", connectAndDeposit);
-
-  // Expose to global scope (if needed in future)
-  window.connectAndDeposit = connectAndDeposit;
-  window.withdrawWinnings = withdrawWinnings;
-  window.requestDraw = requestDraw;
-
-</script>
+  </script>
 </body>
 </html>
