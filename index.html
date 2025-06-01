@@ -863,6 +863,10 @@
       document.getElementById("withdrawBtn").addEventListener('click', withdrawWinnings);
       document.getElementById("requestDrawBtn").addEventListener('click', requestDraw);
     });
+    // Expose to global scope for inline HTML onclick handlers
+window.connectAndDeposit = connectAndDeposit;
+window.withdrawWinnings = withdrawWinnings;
+window.requestDraw = requestDraw;
   </script>
 </body>
 </html>
