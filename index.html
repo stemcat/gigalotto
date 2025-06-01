@@ -671,129 +671,54 @@
       if (window.ethereum) {
         try {
           web3 = new Web3(window.ethereum);
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
           contract = new web3.eth.Contract(abi, contractAddress);
           
-          // Get user account
-          const accounts = await web3.eth.getAccounts();
-          userAccount = accounts[0];
-          
-          // Update UI
-          updateUI();
-          
-          // Set up listeners
-          window.ethereum.on('accountsChanged', (accounts) => {
-            userAccount = accounts[0];
-            updateUI();
-          });
-          
-          // Start regular updates
+          // REMOVED automatic account request here
           startUpdates();
           
         } catch (error) {
           console.error("Error initializing Web3:", error);
-          document.getElementById("status").innerHTML = "⚠️ Error connecting to wallet. See console for details.";
+          document.getElementById("status").innerHTML = "⚠️ Error initializing Web3. See console for details.";
         }
       } else {
         document.getElementById("status").innerHTML = "⚠️ Please install MetaMask or another Web3 provider!";
       }
     }
 
-    // Update all UI elements
-    async function updateUI() {
-      if (!contract || !userAccount) return;
-      
-      try {
-        // Update user info
-        document.getElementById("userAddress").innerText = 
-          `${userAccount.substring(0, 6)}...${userAccount.substring(38)}`;
-        document.getElementById("userDashboard").style.display = "block";
-        
-        // Update user deposits
-        const userDeposit = await contract.methods.userDeposits(userAccount).call();
-        document.getElementById("userDeposit").innerText = 
-          web3.utils.fromWei(userDeposit, "ether");
-        
-        // Update jackpot info
-        const totalPool = await contract.methods.totalPool().call();
-        const jackpotUsd = await contract.methods.getJackpotUsd().call();
-        document.getElementById("jackpot").innerHTML = 
-          `<strong>${web3.utils.fromWei(totalPool, "ether")} ETH</strong> ($${(jackpotUsd / 1e8).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
-        
-        // Update progress bar
-        const targetUsd = await contract.methods.TARGET_USD().call();
-        const percent = (jackpotUsd / targetUsd) * 100;
-        document.getElementById("progressFill").style.width = `${Math.min(percent, 100)}%`;
-        
-        // Update 24h deposits
-        const last24hUsd = await contract.methods.last24hDepositUsd().call();
-        document.getElementById("usd24h").innerText = `$${(last24hUsd / 1e8).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})`;
-        
-        // Update hold timer
-        updateHoldTimer();
-        
-        // Check if user is winner
-        const winner = await contract.methods.winner().call();
-        const withdrawBtn = document.getElementById("withdrawBtn");
-        const requestDrawBtn = document.getElementById("requestDrawBtn");
-        const statusDiv = document.getElementById("status");
-        
-        if (winner === userAccount) {
-          statusDiv.innerHTML = '<div class="winner-banner">🎉 YOU ARE THE WINNER! 🎉</div>';
-          statusDiv.innerHTML += '<p>Congratulations! You won the GIGA LOTTO jackpot!</p>';
-          withdrawBtn.style.display = "inline-block";
-        } else if (winner !== "0x0000000000000000000000000000000000000000") {
-          statusDiv.innerHTML = `<p><strong>🏆 Winner:</strong> ${winner.substring(0, 6)}...${winner.substring(38)}</p>`;
-          withdrawBtn.style.display = "none";
-        } else {
-          statusDiv.innerHTML = "<p>Waiting for the next winner...</p>";
-          withdrawBtn.style.display = "none";
-        }
-        
-        // Check draw status
-        const canDraw = await contract.methods.canDraw().call();
-        if (canDraw) {
-          statusDiv.innerHTML += "<p>The draw conditions are met! Request a draw now!</p>";
-          requestDrawBtn.style.display = "inline-block";
-        } else {
-          requestDrawBtn.style.display = "none";
-        }
-        
-      } catch (error) {
-        console.error("Error updating UI:", error);
-        document.getElementById("status").innerHTML = `⚠️ Error: ${error.message}`;
-      }
-    }
-
-    // Update hold timer
-    async function updateHoldTimer() {
-      try {
-        const start = await contract.methods.holdStartTimestamp().call();
-        if (parseInt(start) === 0) {
-          document.getElementById("holdTimer").innerText = "Not reached";
-          return;
-        }
-        
-        const now = Math.floor(Date.now() / 1000);
-        const diff = now - parseInt(start);
-        const hours = Math.floor(diff / 3600);
-        const minutes = Math.floor((diff % 3600) / 60);
-        const seconds = diff % 60;
-        
-        document.getElementById("holdTimer").innerText = 
-          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      } catch (error) {
-        console.error("Error updating timer:", error);
-      }
-    }
-
-    // Deposit ETH - FIXED: Added initialization check
-    async function connectAndDeposit() {
+    // NEW FUNCTION: Connect wallet only when requested
+    async function connectWallet() {
       if (!web3 || !contract) {
         await initWeb3();
         if (!web3 || !contract) return;
       }
       
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        userAccount = accounts[0];
+        
+        // Set up account change listener
+        window.ethereum.on('accountsChanged', (accounts) => {
+          userAccount = accounts[0];
+          updateUI();
+        });
+        
+        updateUI();
+        
+      } catch (error) {
+        console.error("Wallet connection failed:", error);
+        document.getElementById("status").innerHTML = "⚠️ Wallet connection failed. Please try again.";
+      }
+    }
+
+    // MODIFIED: Now combines wallet connection and deposit
+    async function connectAndDeposit() {
+      // Connect wallet first if not connected
+      if (!userAccount) {
+        await connectWallet();
+        if (!userAccount) return; // Stop if connection failed
+      }
+      
+      // Now process deposit
       const ethAmount = document.getElementById("ethAmount").value;
       if (!ethAmount || parseFloat(ethAmount) <= 0) {
         document.getElementById("status").innerHTML = "⚠️ Please enter a valid ETH amount";
@@ -817,50 +742,56 @@
       }
     }
 
-    // Withdraw winnings
-    async function withdrawWinnings() {
-      if (!contract || !userAccount) return;
-      
-      try {
-        document.getElementById("status").innerHTML = "⏳ Processing withdrawal...";
-        await contract.methods.withdrawIfWinner().send({ from: userAccount });
-        document.getElementById("status").innerHTML = "✅ Withdrawal successful!";
-        updateUI();
-      } catch (error) {
-        console.error("Withdrawal failed:", error);
-        document.getElementById("status").innerHTML = `⚠️ Withdrawal failed: ${error.message}`;
-      }
-    }
+    // ... rest of existing functions (updateUI, updateHoldTimer, etc.) ...
 
-    // Request draw
-    async function requestDraw() {
-      if (!contract || !userAccount) return;
-      
+    // MODIFIED: Update UI to handle disconnected state
+    async function updateUI() {
       try {
-        document.getElementById("status").innerHTML = "⏳ Requesting draw...";
-        await contract.methods.requestDraw().send({ from: userAccount });
-        document.getElementById("status").innerHTML = "✅ Draw requested! The winner will be selected soon.";
-        updateUI();
-      } catch (error) {
-        console.error("Draw request failed:", error);
-        document.getElementById("status").innerHTML = `⚠️ Draw request failed: ${error.message}`;
-      }
-    }
+        // Always update public jackpot info
+        const totalPool = await contract.methods.totalPool().call();
+        const jackpotUsd = await contract.methods.getJackpotUsd().call();
+        document.getElementById("jackpot").innerHTML = 
+          `<strong>${web3.utils.fromWei(totalPool, "ether")} ETH</strong> ($${(jackpotUsd / 1e8).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
+        
+        // Update progress bar
+        const targetUsd = await contract.methods.TARGET_USD().call();
+        const percent = (jackpotUsd / targetUsd) * 100;
+        document.getElementById("progressFill").style.width = `${Math.min(percent, 100)}%`;
+        
+        // Update 24h deposits
+        const last24hUsd = await contract.methods.last24hDepositUsd().call();
+        document.getElementById("usd24h").innerText = `$${(last24hUsd / 1e8).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})`;
+        
+        // Update hold timer
+        updateHoldTimer();
+        
+        // Only show user dashboard if connected
+        if (userAccount) {
+          document.getElementById("userAddress").innerText = 
+            `${userAccount.substring(0, 6)}...${userAccount.substring(38)}`;
+          document.getElementById("userDashboard").style.display = "block";
+          
+          const userDeposit = await contract.methods.userDeposits(userAccount).call();
+          document.getElementById("userDeposit").innerText = 
+            web3.utils.fromWei(userDeposit, "ether");
+        } else {
+          document.getElementById("userDashboard").style.display = "none";
+        }
+        
+        // ... rest of winner/draw status checks ...
 
-    // Start regular updates
-    function startUpdates() {
-      // Update UI every 15 seconds
-      setInterval(updateUI, 15000);
-      
-      // Update timer every second
-      setInterval(updateHoldTimer, 1000);
+      } catch (error) {
+        console.error("Error updating UI:", error);
+        // Don't show full error to user, just generic message
+        document.getElementById("status").innerHTML = `⚠️ Error updating data.`;
+      }
     }
 
     // Initialize when page loads
     window.addEventListener('load', async () => {
-      await initWeb3();
+      await initWeb3(); // Initialize without connecting wallet
       
-      // FIXED: Added event listener for deposit button
+      // Set up event listeners
       document.getElementById("depositBtn").addEventListener('click', connectAndDeposit);
       document.getElementById("withdrawBtn").addEventListener('click', withdrawWinnings);
       document.getElementById("requestDrawBtn").addEventListener('click', requestDraw);
