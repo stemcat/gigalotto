@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GIGA LOTTO: $2.2B Challenge</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js">
+  // Set up wallet connect button
+  document.getElementById("connectBtn").addEventListener("click", async () => {
+    console.log("Connect button clicked");
+    if (window.ethereum) {
+      try {
+        console.log("Requesting MetaMask accounts...");
+        const web3 = new Web3(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await web3.eth.getAccounts();
+        console.log("Connected to:", accounts[0]);
+        document.getElementById("status").innerHTML = `✅ Connected: ${accounts[0]}`;
+      } catch (err) {
+        console.error("Connection error:", err);
+        document.getElementById("status").innerHTML = `⚠️ Error: ${err.message}`;
+      }
+    } else {
+      console.warn("MetaMask not detected");
+      document.getElementById("status").innerHTML = "⚠️ Please install MetaMask!";
+    }
+  });
+
+</script>
+  <style>
+    body {
+      background: url("https://www.transparenttextures.com/patterns/asfalt-dark.png");
+      font-family: 'Press Start 2P', cursive;
+      color: #111;
+      background-color: #d0d0ff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background: linear-gradient(#00f, #88f);
+      padding: 20px;
+      color: white;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      position: relative;
+    }
+    .header-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(255,255,255,0.6) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #fffbe8;
+      border: 5px double #444;
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      position: relative;
+      overflow: hidden;
+    }
+    .container::before {
+      content: "";
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      border: 2px solid #ff0;
+      border-radius: 5px;
+      z-index: -1;
+      animation: pulse 3s infinite;
+    }
+    h1 {
+      font-size: 1.5em;
+      color: #222;
+      text-shadow: 0 0 5px rgba(255,255,0,0.7);
+    }
+    .jackpot-display {
+      background: #e0ffe0;
+      border: 2px dashed #0a0;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 1.2em;
+      position: relative;
+    }
+    .progress-bar {
+      background: #ccc;
+      border: 2px inset #999;
+      height: 25px;
+      position: relative;
+      margin: 10px auto;
+      width: 100%;
+    }
+    .progress-fill {
+      height: 100%;
+      background: repeating-linear-gradient(45deg, #0f0, #0f0 10px, #afa 10px, #afa 20px);
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .wallet {
+      background: #f0f8ff;
+      border: 2px solid #00c;
+      padding: 10px;
+      margin-top: 20px;
+    }
+    .user-dashboard {
+      background: #eef;
+      padding: 10px;
+      margin-top: 20px;
+      border: 2px solid #009;
+    }
+    .actions {
+      margin: 20px 0;
+    }
+    button {
+      background: #00c;
+      color: #fff;
+      font-size: 1em;
+      border: 2px solid #000;
+      padding: 10px 20px;
+      cursor: pointer;
+      box-shadow: 2px 2px #888;
+      margin: 5px;
+      font-family: 'Press Start 2P', cursive;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #00f;
+      transform: translateY(-2px);
+      box-shadow: 3px 3px #666;
+    }
+    button:active {
+      transform: translateY(1px);
+      box-shadow: 1px 1px #aaa;
+    }
+    #withdrawBtn {
+      background: linear-gradient(#0f0, #080);
+    }
+    #requestDrawBtn {
+      background: linear-gradient(#f90, #f60);
+    }
+    footer {
+      font-size: 0.6em;
+      margin: 30px auto;
+      color: #444;
+    }
+    #status {
+      background: #ffd;
+      padding: 15px;
+      margin: 20px 0;
+      border: 2px solid #aa0;
+      font-size: 0.9em;
+    }
+    input {
+      padding: 10px;
+      font-family: 'Press Start 2P', cursive;
+      border: 2px inset #999;
+      margin: 10px;
+      width: 200px;
+    }
+    .winner-banner {
+      background: linear-gradient(90deg, #ff0, #f90, #ff0);
+      padding: 10px;
+      margin: 10px 0;
+      border: 3px solid #f90;
+      animation: shine 2s infinite;
+    }
+    @keyframes shine {
+      0% { box-shadow: 0 0 5px #ff0; }
+      50% { box-shadow: 0 0 20px #ff0; }
+      100% { box-shadow: 0 0 5px #ff0; }
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 5px rgba(255,255,0,0.5); }
+      50% { box-shadow: 0 0 20px rgba(255,255,0,0.8); }
+      100% { box-shadow: 0 0 5px rgba(255,255,0,0.5); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-glow"></div>
+    <h1>🤑 GIGA LOTTO - $2.2B CHALLENGE 🤑</h1>
+    <p>The lottery that only draws when crypto makes history</p>
+  </header>
+  <div class="container">
+    <div class="jackpot-display">
+      <strong>💰 Jackpot Pool:</strong> <span id="jackpot">Loading...</span><br>
+      <strong>🎯 Target:</strong> $2.2B USD<br>
+      <strong>📈 Holding Above Target For:</strong> <span id="holdTimer">--:--:--</span>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    <div class="jackpot-display">
+      <strong>🔥 USD Deposited Last 24h:</strong> <span id="usd24h">Loading...</span> USD
+    </div>
+    <div class="wallet">
+      <p><strong>🎟️ Enter the Pot</strong></p>
+      <input type="number" id="ethAmount" placeholder="Amount in ETH" step="0.001" />
+      <button id="connectBtn">🔌 Connect Wallet</button>
+    </div>
+    <div class="user-dashboard" id="userDashboard" style="display:none;">
+      <p><strong>Connected:</strong> <span id="userAddress"></span></p>
+      <p><strong>Your Total Deposits:</strong> <span id="userDeposit">0</span> ETH</p>
+    </div>
+    <div class="actions">
+      <button id="withdrawBtn" style="display:none;">Withdraw Winnings</button>
+      <button id="requestDrawBtn" style="display:none;">Request Draw</button>
+    </div>
+    <div id="status"></div>
+  </div>
+  <footer>
+    <p>Contract verified | Non-custodial | Transparent rules | Community driven</p>
+    <p>&copy; 2025 GIGA LOTTO Project</p>
+  </footer>
+
+  <script>
+    let web3;
+    let contract;
+    let userAccount;
+    const contractAddress = "0xF5aEA51f7fAaABe16Fd3c14Da9Fa90e223D41404";
+    const abi = [
+      {
+        "inputs": [],
+        "name": "deposit",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "_priceFeed",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "_vrfCoordinator",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "_keyHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_subscriptionId",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "have",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "want",
+            "type": "address"
+          }
+        ],
+        "name": "OnlyCoordinatorCanFulfill",
+        "type": "error"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "previousOwner",
+            "type": "address"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "newOwner",
+            "type": "address"
+          }
+        ],
+        "name": "OwnershipTransferred",
+        "type": "event"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "requestId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256[]",
+            "name": "randomWords",
+            "type": "uint256[]"
+          }
+        ],
+        "name": "rawFulfillRandomWords",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "renounceOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "requestDraw",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "newOwner",
+            "type": "address"
+          }
+        ],
+        "name": "transferOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "withdrawFees",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "withdrawIfWinner",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "stateMutability": "payable",
+        "type": "receive"
+      },
+      {
+        "inputs": [],
+        "name": "callbackGasLimit",
+        "outputs": [
+          {
+            "internalType": "uint32",
+            "name": "",
+            "type": "uint32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "canDraw",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "collectedFees",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "name": "entries",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "user",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "cumulativeWeight",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "FEE_PERCENT",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getEntriesCount",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "index",
+            "type": "uint256"
+          }
+        ],
+        "name": "getEntry",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "user",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "cumulative",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getJackpotUsd",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "holdStartTimestamp",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "keyHash",
+        "outputs": [
+          {
+            "internalType": "bytes32",
+            "name": "",
+            "type": "bytes32"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "last24hDepositUsd",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "last24hWindowStart",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "lastRequestId",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "MIN_24H_USD",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "priceFeed",
+        "outputs": [
+          {
+            "internalType": "contract AggregatorV2V3Interface",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "requestConfirmations",
+        "outputs": [
+          {
+            "internalType": "uint16",
+            "name": "",
+            "type": "uint16"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "subscriptionId",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "TARGET_USD",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "totalPool",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "name": "userDeposits",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "vrfCoordinator",
+        "outputs": [
+          {
+            "internalType": "contract VRFCoordinatorV2Interface",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "winner",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    // Initialize Web3 and contract
+    async function initWeb3() {
+      if (window.ethereum) {
+        try {
+          web3 = new Web3(window.ethereum);
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          contract = new web3.eth.Contract(abi, contractAddress);
+          
+          // Get user account
+          const accounts = await web3.eth.getAccounts();
+          userAccount = accounts[0];
+          
+          // Update UI
+          updateUI();
+          
+          // Set up listeners
+          window.ethereum.on('accountsChanged', (accounts) => {
+            userAccount = accounts[0];
+            updateUI();
+          });
+          
+          // Start regular updates
+          startUpdates();
+          
+        } catch (error) {
+          console.error("Error initializing Web3:", error);
+          document.getElementById("status").innerHTML = "⚠️ Error connecting to wallet. See console for details.";
+        }
+      } else {
+        document.getElementById("status").innerHTML = "⚠️ Please install MetaMask or another Web3 provider!";
+      }
+    }
+
+    // Update all UI elements
+    async function updateUI() {
+      if (!contract || !userAccount) return;
+      
+      try {
+        // Update user info
+        document.getElementById("userAddress").innerText = 
+          `${userAccount.substring(0, 6)}...${userAccount.substring(38)}`;
+        document.getElementById("userDashboard").style.display = "block";
+        
+        // Update user deposits
+        const userDeposit = await contract.methods.userDeposits(userAccount).call();
+        document.getElementById("userDeposit").innerText = 
+          web3.utils.fromWei(userDeposit, "ether");
+        
+        // Update jackpot info
+        const totalPool = await contract.methods.totalPool().call();
+        const jackpotUsd = await contract.methods.getJackpotUsd().call();
+        document.getElementById("jackpot").innerHTML = 
+          `<strong>${web3.utils.fromWei(totalPool, "ether")} ETH</strong> ($${(jackpotUsd / 1e8).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})`;
+        
+        // Update progress bar
+        const targetUsd = await contract.methods.TARGET_USD().call();
+        const percent = (jackpotUsd / targetUsd) * 100;
+        document.getElementById("progressFill").style.width = `${Math.min(percent, 100)}%`;
+        
+        // Update 24h deposits
+        const last24hUsd = await contract.methods.last24hDepositUsd().call();
+        document.getElementById("usd24h").innerText = `$${(last24hUsd / 1e8).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})`;
+        
+        // Update hold timer
+        updateHoldTimer();
+        
+        // Check if user is winner
+        const winner = await contract.methods.winner().call();
+        const withdrawBtn = document.getElementById("withdrawBtn");
+        const requestDrawBtn = document.getElementById("requestDrawBtn");
+        const statusDiv = document.getElementById("status");
+        
+        if (winner === userAccount) {
+          statusDiv.innerHTML = '<div class="winner-banner">🎉 YOU ARE THE WINNER! 🎉</div>';
+          statusDiv.innerHTML += '<p>Congratulations! You won the GIGA LOTTO jackpot!</p>';
+          withdrawBtn.style.display = "inline-block";
+        } else if (winner !== "0x0000000000000000000000000000000000000000") {
+          statusDiv.innerHTML = `<p><strong>🏆 Winner:</strong> ${winner.substring(0, 6)}...${winner.substring(38)}</p>`;
+          withdrawBtn.style.display = "none";
+        } else {
+          statusDiv.innerHTML = "<p>Waiting for the next winner...</p>";
+          withdrawBtn.style.display = "none";
+        }
+        
+        // Check draw status
+        const canDraw = await contract.methods.canDraw().call();
+        if (canDraw) {
+          statusDiv.innerHTML += "<p>The draw conditions are met! Request a draw now!</p>";
+          requestDrawBtn.style.display = "inline-block";
+        } else {
+          requestDrawBtn.style.display = "none";
+        }
+        
+      } catch (error) {
+        console.error("Error updating UI:", error);
+        document.getElementById("status").innerHTML = `⚠️ Error: ${error.message}`;
+      }
+    }
+
+    // Update hold timer
+    async function updateHoldTimer() {
+      try {
+        const start = await contract.methods.holdStartTimestamp().call();
+        if (parseInt(start) === 0) {
+          document.getElementById("holdTimer").innerText = "Not reached";
+          return;
+        }
+        
+        const now = Math.floor(Date.now() / 1000);
+        const diff = now - parseInt(start);
+        const hours = Math.floor(diff / 3600);
+        const minutes = Math.floor((diff % 3600) / 60);
+        const seconds = diff % 60;
+        
+        document.getElementById("holdTimer").innerText = 
+          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      } catch (error) {
+        console.error("Error updating timer:", error);
+      }
+    }
+
+    // Deposit ETH
+    async function connectAndDeposit() {
+      if (!contract) {
+        await initWeb3();
+        if (!contract) return;
+      }
+      
+      const ethAmount = document.getElementById("ethAmount").value;
+      if (!ethAmount || parseFloat(ethAmount) <= 0) {
+        document.getElementById("status").innerHTML = "⚠️ Please enter a valid ETH amount";
+        return;
+      }
+      
+      try {
+        const valueInWei = web3.utils.toWei(ethAmount, "ether");
+        document.getElementById("status").innerHTML = "⏳ Processing deposit...";
+        
+        await contract.methods.deposit().send({ 
+          from: userAccount, 
+          value: valueInWei 
+        });
+        
+        document.getElementById("status").innerHTML = "✅ Deposit successful!";
+        updateUI();
+      } catch (error) {
+        console.error("Deposit failed:", error);
+        document.getElementById("status").innerHTML = `⚠️ Deposit failed: ${error.message}`;
+      }
+    }
+
+    // Withdraw winnings
+    async function withdrawWinnings() {
+      if (!contract || !userAccount) return;
+      
+      try {
+        document.getElementById("status").innerHTML = "⏳ Processing withdrawal...";
+        await contract.methods.withdrawIfWinner().send({ from: userAccount });
+        document.getElementById("status").innerHTML = "✅ Withdrawal successful!";
+        updateUI();
+      } catch (error) {
+        console.error("Withdrawal failed:", error);
+        document.getElementById("status").innerHTML = `⚠️ Withdrawal failed: ${error.message}`;
+      }
+    }
+
+    // Request draw
+    async function requestDraw() {
+      if (!contract || !userAccount) return;
+      
+      try {
+        document.getElementById("status").innerHTML = "⏳ Requesting draw...";
+        await contract.methods.requestDraw().send({ from: userAccount });
+        document.getElementById("status").innerHTML = "✅ Draw requested! The winner will be selected soon.";
+        updateUI();
+      } catch (error) {
+        console.error("Draw request failed:", error);
+        document.getElementById("status").innerHTML = `⚠️ Draw request failed: ${error.message}`;
+      }
+    }
+
+    // Start regular updates
+    function startUpdates() {
+      // Update UI every 15 seconds
+      setInterval(updateUI, 15000);
+      
+      // Update timer every second
+      setInterval(updateHoldTimer, 1000);
+    }
+
+    // Initialize when page loads
+    window.addEventListener('load', async () => {
+      await initWeb3();
+      
+      // Set up button event listeners
+      document.getElementById("withdrawBtn").addEventListener('click', withdrawWinnings);
+      document.getElementById("requestDrawBtn").addEventListener('click', requestDraw);
+    });
+  
+  // Set up wallet connect button
+  document.getElementById("connectBtn").addEventListener("click", async () => {
+    console.log("Connect button clicked");
+    if (window.ethereum) {
+      try {
+        console.log("Requesting MetaMask accounts...");
+        const web3 = new Web3(window.ethereum);
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await web3.eth.getAccounts();
+        console.log("Connected to:", accounts[0]);
+        document.getElementById("status").innerHTML = `✅ Connected: ${accounts[0]}`;
+      } catch (err) {
+        console.error("Connection error:", err);
+        document.getElementById("status").innerHTML = `⚠️ Error: ${err.message}`;
+      }
+    } else {
+      console.warn("MetaMask not detected");
+      document.getElementById("status").innerHTML = "⚠️ Please install MetaMask!";
+    }
+  });
+
+</script>
+</body>
+</html>
