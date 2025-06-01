@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GIGA LOTTO: $2.2B Challenge</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <style>
+    body {
+      background: url("https://www.transparenttextures.com/patterns/asfalt-dark.png");
+      font-family: 'Press Start 2P', cursive;
+      color: #111;
+      background-color: #d0d0ff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background: linear-gradient(#00f, #88f);
+      padding: 20px;
+      color: white;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #fffbe8;
+      border: 5px double #444;
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+    h1 {
+      font-size: 1.5em;
+      color: #222;
+    }
+    .jackpot-display {
+      background: #e0ffe0;
+      border: 2px dashed #0a0;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 1.2em;
+    }
+    .progress-bar {
+      background: #ccc;
+      border: 2px inset #999;
+      height: 25px;
+      position: relative;
+      margin: 10px auto;
+      width: 100%;
+    }
+    .progress-fill {
+      height: 100%;
+      background: repeating-linear-gradient(45deg, #0f0, #0f0 10px, #afa 10px, #afa 20px);
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .wallet {
+      background: #f0f8ff;
+      border: 2px solid #00c;
+      padding: 10px;
+      margin-top: 20px;
+    }
+    .user-dashboard {
+      background: #eef;
+      padding: 10px;
+      margin-top: 20px;
+      border: 2px solid #009;
+    }
+    button {
+      background: #00c;
+      color: #fff;
+      font-size: 1em;
+      border: 2px solid #000;
+      padding: 10px 20px;
+      cursor: pointer;
+      box-shadow: 2px 2px #888;
+    }
+    footer {
+      font-size: 0.6em;
+      margin: 30px auto;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🤑 GIGA LOTTO - $2.2B CHALLENGE 🤑</h1>
+    <p>The lottery that only draws when crypto makes history</p>
+  </header>
+  <div class="container">
+    <div class="jackpot-display">
+      <strong>💰 Jackpot Pool:</strong> <span id="jackpot">Loading...</span> ETH<br>
+      <strong>🎯 Target:</strong> 550,000 ETH ($2.2B)<br>
+      <strong>📈 Holding Above Target For:</strong> <span id="holdTimer">--:--:--</span>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+    <div class="jackpot-display">
+      <strong>🔥 USD Deposited Last 24h:</strong> <span id="usd24h">Loading...</span> USD
+    </div>
+    <div class="wallet">
+      <p><strong>🎟️ Enter the Pot</strong></p>
+      <input type="number" id="ethAmount" placeholder="Amount in ETH" step="0.001" />
+      <button onclick="connectAndDeposit()">Connect & Deposit</button>
+    </div>
+    <div class="user-dashboard" id="userDashboard" style="display:none;">
+      <p><strong>Connected:</strong> <span id="userAddress"></span></p>
+      <p><strong>Your Total Deposits:</strong> <span id="userDeposit">0</span> ETH</p>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+  <footer>
+    <p>Contract verified | Non-custodial | Transparent rules | Community driven</p>
+    <p>&copy; 2025 GIGA LOTTO Project</p>
+  </footer>
+
+  <script>
+    let web3;
+    let contract;
+    const contractAddress = "0x891536fED7555fe4B40e910e14E3df8ab129171E"; // Replace later
+    const abi = [
+  {"inputs":[],"name":"totalPool","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"holdStartTimestamp","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"last24hDepositUsd","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"deposit","outputs":[],"stateMutability":"payable","type":"function"},
+  {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"userDeposits","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+] // Updated ABI with 24h USD deposits
+
+    async function connectAndDeposit() {
+      if (typeof window.ethereum !== 'undefined') {
+        web3 = new Web3(window.ethereum);
+        await ethereum.request({ method: 'eth_requestAccounts' });
+        contract = new web3.eth.Contract(abi, contractAddress);
+
+        const accounts = await web3.eth.getAccounts();
+        const user = accounts[0];
+        document.getElementById("userAddress").innerText = user;
+        document.getElementById("userDashboard").style.display = "block";
+
+        const ethAmount = document.getElementById("ethAmount").value;
+        if (!ethAmount || parseFloat(ethAmount) < 0.001) {
+          alert("Minimum deposit is 0.001 ETH");
+          return;
+        }
+
+        const valueInWei = web3.utils.toWei(ethAmount, "ether");
+        try {
+          await contract.methods.deposit().send({ from: user, value: valueInWei });
+          updateUserDashboard(user);
+        } catch (e) {
+          alert("Transaction failed");
+          console.error(e);
+        }
+      } else {
+        alert("Install MetaMask to continue.");
+      }
+    }
+
+    async function updateUserDashboard(user) {
+      const deposit = await contract.methods.userDeposits(user).call();
+      document.getElementById("userDeposit").innerText = web3.utils.fromWei(deposit, "ether");
+    }
+
+    async function updateJackpot() {
+      if (!contract) return;
+      const pool = await contract.methods.totalPool().call();
+      document.getElementById("jackpot").innerText = web3.utils.fromWei(pool, "ether");
+      const percent = (parseFloat(web3.utils.fromWei(pool, "ether")) / 550000) * 100;
+      document.getElementById("progressFill").style.width = `${percent.toFixed(2)}%`;
+    }
+
+    async function updateHoldTimer() {
+      if (!contract) return;
+      const start = await contract.methods.holdStartTimestamp().call();
+      if (parseInt(start) === 0) return;
+      const now = Math.floor(Date.now() / 1000);
+      const diff = now - parseInt(start);
+      const hours = Math.floor(diff / 3600);
+      const minutes = Math.floor((diff % 3600) / 60);
+      const seconds = diff % 60;
+      document.getElementById("holdTimer").innerText = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
+    }
+
+    setInterval(updateJackpot, 10000);
+    setInterval(updateHoldTimer, 1000);
+    async function updateLast24hUsd() {
+      if (!contract) return;
+      const usd = await contract.methods.last24hDepositUsd().call();
+      const millions = (parseFloat(web3.utils.fromWei(usd, "ether")) * 2000 / 1e6).toFixed(2); // crude conversion
+      document.getElementById("usd24h").innerText = `$${millions}M`;
+    }
+    setInterval(updateLast24hUsd, 10000);
+  </script>
+</body>
+</html>
