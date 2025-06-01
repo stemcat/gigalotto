@@ -6,6 +6,8 @@ let contract;
 let userAccount;
 
 const contractAddress = "0xF5aEA51f7fAaABe16Fd3c14Da9Fa90e223D41404";
+
+// ✅ Paste your ABI below:
 const abi = [ [
 	{
 		"inputs": [],
@@ -468,25 +470,24 @@ const abi = [ [
 ] ];
 
 export async function initWeb3() {
-  if (window.ethereum) {
-    try {
-      provider = new ethers.BrowserProvider(window.ethereum);
-      signer = await provider.getSigner();
-      userAccount = await signer.getAddress();
-      contract = new ethers.Contract(contractAddress, abi, signer);
-      updateUI();
-    } catch (e) {
-      console.error("Web3 init error:", e);
-      document.getElementById("status").innerText = "⚠️ Connect rejected.";
-    }
-  } else {
+  if (!window.ethereum) {
     document.getElementById("status").innerText = "⚠️ Please install MetaMask.";
+    return;
+  }
+
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    userAccount = await signer.getAddress();
+    contract = new ethers.Contract(contractAddress, abi, signer);
+    updateUI();
+  } catch (e) {
+    console.error("Init error:", e);
+    document.getElementById("status").innerText = "⚠️ Connection failed.";
   }
 }
 
 export async function connectAndDeposit() {
-  if (!contract || !signer) return;
-
   const ethAmount = document.getElementById("ethAmount").value;
   if (!ethAmount || parseFloat(ethAmount) <= 0) {
     document.getElementById("status").innerText = "⚠️ Enter a valid ETH amount.";
@@ -538,8 +539,7 @@ async function updateUI() {
     const deposit = await contract.userDeposits(userAccount);
     document.getElementById("userDeposit").innerText = ethers.formatEther(deposit);
 
-    document.getElementById("userAddress").innerText = 
-      `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+    document.getElementById("userAddress").innerText = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
     document.getElementById("userDashboard").style.display = "block";
 
     const totalPool = await contract.totalPool();
@@ -547,16 +547,17 @@ async function updateUI() {
     const targetUsd = await contract.TARGET_USD();
     const last24hUsd = await contract.last24hDepositUsd();
 
-    const percent = (jackpotUsd * 100n) / targetUsd;
     document.getElementById("jackpot").innerHTML =
       `<strong>${ethers.formatEther(totalPool)} ETH</strong> ($${(Number(jackpotUsd) / 1e8).toFixed(2)})`;
     document.getElementById("usd24h").innerText = `$${(Number(last24hUsd) / 1e8).toFixed(2)}`;
+
+    const percent = (jackpotUsd * 100n) / targetUsd;
     document.getElementById("progressFill").style.width = `${Math.min(Number(percent), 100)}%`;
 
     updateHoldTimer();
     checkWinnerAndDraw();
   } catch (e) {
-    console.error("UI update error:", e);
+    console.error("UI update failed:", e);
   }
 }
 
@@ -576,7 +577,7 @@ async function updateHoldTimer() {
     document.getElementById("holdTimer").innerText = 
       `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   } catch (e) {
-    console.error("Timer update failed:", e);
+    console.error("Timer error:", e);
   }
 }
 
@@ -600,6 +601,6 @@ async function checkWinnerAndDraw() {
       document.getElementById("requestDrawBtn").style.display = "inline-block";
     }
   } catch (e) {
-    console.error("Winner/draw check failed:", e);
+    console.error("Winner check failed:", e);
   }
 }
