@@ -6,9 +6,9 @@ import {
 } from "./wallet.js";
 
 window.addEventListener("load", async () => {
-  await initWeb3();
+  // Remove the automatic initWeb3() call here
+  // await initWeb3();
 
-  // The depositBtn doesn't exist in your HTML, but connectBtn does
   document.getElementById("connectBtn").addEventListener("click", async () => {
     try {
       await initWeb3();
@@ -17,6 +17,10 @@ window.addEventListener("load", async () => {
       const ethAmount = document.getElementById("ethAmount").value;
       if (ethAmount && parseFloat(ethAmount) > 0) {
         await connectAndDeposit();
+      } else {
+        // Just update UI to show connected status
+        document.getElementById("status").innerText = "✅ Wallet connected!";
+        document.getElementById("userDashboard").style.display = "block";
       }
 
       updateUI();
