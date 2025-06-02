@@ -3,27 +3,23 @@ import {
   connectAndDeposit,
   withdrawWinnings,
   requestDraw,
+  loadJackpotInfo
 } from "./wallet.js";
 
 window.addEventListener("load", async () => {
-  // Remove the automatic initWeb3() call here
-  // await initWeb3();
+  // Load basic jackpot info without requiring connection
+  await loadJackpotInfo();
 
   document.getElementById("connectBtn").addEventListener("click", async () => {
     try {
-      await initWeb3();
-
-      // If there's an amount entered, also do the deposit
-      const ethAmount = document.getElementById("ethAmount").value;
-      if (ethAmount && parseFloat(ethAmount) > 0) {
-        await connectAndDeposit();
-      } else {
-        // Just update UI to show connected status
-        document.getElementById("status").innerText = "✅ Wallet connected!";
-        document.getElementById("userDashboard").style.display = "block";
+      const connected = await initWeb3();
+      
+      if (connected) {
+        const ethAmount = document.getElementById("ethAmount").value;
+        if (ethAmount && parseFloat(ethAmount) > 0) {
+          await connectAndDeposit();
+        }
       }
-
-      updateUI();
     } catch (e) {
       console.error("Connection error:", e);
       document.getElementById("status").innerText =
