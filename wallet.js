@@ -571,6 +571,8 @@ const abi = [ [
 ];
 
 export async function initWeb3() {
+  if (contract && userAccount) return; // ✅ Already connected
+
   if (!window.ethereum) {
     document.getElementById("status").innerText = "⚠️ Please install MetaMask.";
     return;
@@ -601,6 +603,24 @@ export async function initWeb3() {
       }
     });
     
+    
+    // ✅ Update UI on successful wallet connection
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) {
+      connectBtn.innerText = "✅ Connected";
+      connectBtn.disabled = true;
+    }
+
+    const depositSection = document.getElementById("depositSection");
+    if (depositSection) {
+      depositSection.style.display = "block";
+    }
+
+    const dashboard = document.getElementById("userDashboard");
+    if (dashboard) {
+      dashboard.style.display = "block";
+    }
+
     updateUI();
   } catch (e) {
     console.error("Init error:", e);
@@ -631,6 +651,24 @@ export async function connectAndDeposit() {
     const modal = document.getElementById("shareModal");
     if (modal?.showModal) modal.showModal();
     
+    
+    // ✅ Update UI on successful wallet connection
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) {
+      connectBtn.innerText = "✅ Connected";
+      connectBtn.disabled = true;
+    }
+
+    const depositSection = document.getElementById("depositSection");
+    if (depositSection) {
+      depositSection.style.display = "block";
+    }
+
+    const dashboard = document.getElementById("userDashboard");
+    if (dashboard) {
+      dashboard.style.display = "block";
+    }
+
     updateUI();
   } catch (e) {
     console.error("Deposit error:", e);
@@ -665,6 +703,24 @@ export async function requestDraw() {
     const tx = await contract.requestDraw();
     await tx.wait();
     document.getElementById("status").innerText = "✅ Draw requested!";
+    
+    // ✅ Update UI on successful wallet connection
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) {
+      connectBtn.innerText = "✅ Connected";
+      connectBtn.disabled = true;
+    }
+
+    const depositSection = document.getElementById("depositSection");
+    if (depositSection) {
+      depositSection.style.display = "block";
+    }
+
+    const dashboard = document.getElementById("userDashboard");
+    if (dashboard) {
+      dashboard.style.display = "block";
+    }
+
     updateUI();
   } catch (e) {
     console.error("Draw error:", e);
