@@ -574,10 +574,16 @@ const abi = [
 export async function initWeb3() {
   if (!window.ethereum) {
     document.getElementById("status").innerText = "⚠️ Please install MetaMask.";
-    return;
+    return false;
   }
 
   try {
+    // Show connecting status
+    document.getElementById("status").innerText = "⏳ Connecting to wallet...";
+    
+    // Request account access - this triggers the MetaMask popup
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+    
     provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
     userAccount = await signer.getAddress();
@@ -605,16 +611,19 @@ export async function initWeb3() {
       }
     });
 
-    // Update UI to show connected state
+    // Only update UI after successful connection
+    document.getElementById("status").innerText = "✅ Wallet connected!";
     document.getElementById("userDashboard").style.display = "block";
+    
+    // Important: Change the button text but keep the original click handler
     document.getElementById("connectBtn").innerText = "🪙 Deposit ETH";
-    document.getElementById("connectBtn").onclick = connectAndDeposit;
-
-    updateUI();
+    // Don't replace the onclick handler, just update the UI
+    
+    await updateUI();
     return true;
   } catch (e) {
     console.error("Init error:", e);
-    document.getElementById("status").innerText = "⚠️ Connection failed.";
+    document.getElementById("status").innerText = "⚠️ Connection failed: " + e.message;
     return false;
   }
 }
@@ -903,33 +912,28 @@ document.addEventListener(
   { once: true }
 );
 
-// Fallback: show jackpot even if user is not connected
-window.addEventListener("load", async () => {
+// Add this fallback function to load basic jackpot info even if not connected
+export async function loadJackpotInfo() {
   if (!window.ethereum) return;
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const tempContract = new ethers.Contract(contractAddress, abi, provider);
-
+  
   try {
-    const totalPool = await tempContract.totalPool();
-    const jackpotUsd = await tempContract.getJackpotUsd();
-    const targetUsd = await tempContract.TARGET_USD();
-    const last24hUsd = await tempContract.last24hDepositUsd();
-
-    document.getElementById(
-      "jackpot"
-    ).innerHTML = `<strong>${ethers.formatEther(totalPool)} ETH</strong> ($${(
-      Number(jackpotUsd) / 1e8
-    ).toFixed(2)})`;
-    document.getElementById("usd24h").innerText = `$${(
-      Number(last24hUsd) / 1e8
-    ).toFixed(2)}`;
-
-    const percent = (jackpotUsd * 100n) / targetUsd;
-    document.getElementById("progressFill").style.width = `${Math.min(
-      Number(percent),
-      100
-    )}%`;
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const readOnlyContract = new ethers.Contract(contractAddress, abi, provider);
+    
+    const totalPool = await readOnlyContract.totalPool();
+    const jackpotUsd = await readOnlyContract.getJackpotUsd();
+    const targetUsd = await readOnlyContract.TARGET_USD();
+    const last24hUsd = await readOnlyContract.last24hDepositUsd();
+    
+    document.getElementById("jackpot").innerHTML = 
+      `<strong>${ethers.formatEther(totalPool)} ETH</strong> ($${(Number(jackpotUsd) / 1e8).toFixed(2)})`;
+    document.getElementById("usd24h").innerText = 
+      `$${(Number(last24hUsd) / 1e8).toFixed(2)}`;
+    
+    const percent = (Number(jackpotUsd) * 100) / Number(targetUsd);
+    document.getElementById("progressFill").style.width = 
+      `${Math.min(Number(percent), 100)}%`;
   } catch (e) {
-    console.warn("Jackpot fallback failed:", e);
+    console.error("Failed to load jackpot info:", e);
   }
-});
+}
