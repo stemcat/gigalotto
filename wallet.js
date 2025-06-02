@@ -605,7 +605,7 @@ export async function initWeb3() {
     
     
     // ✅ Update UI on successful wallet connection
-    const connectBtn = document.getElementById("connectBtn");
+    let connectBtn = document.getElementById("connectBtn");
     if (connectBtn) {
       connectBtn.innerText = "✅ Connected";
       connectBtn.disabled = true;
@@ -623,7 +623,7 @@ export async function initWeb3() {
 
     
     // ✅ UI updates AFTER successful connection
-    const connectBtn = document.getElementById("connectBtn");
+    let connectBtn = document.getElementById("connectBtn");
     if (connectBtn) {
       connectBtn.innerText = "✅ Connected";
       connectBtn.disabled = true;
@@ -677,7 +677,7 @@ export async function connectAndDeposit() {
     
     
     // ✅ Update UI on successful wallet connection
-    const connectBtn = document.getElementById("connectBtn");
+    let connectBtn = document.getElementById("connectBtn");
     if (connectBtn) {
       connectBtn.innerText = "✅ Connected";
       connectBtn.disabled = true;
@@ -695,7 +695,7 @@ export async function connectAndDeposit() {
 
     
     // ✅ UI updates AFTER successful connection
-    const connectBtn = document.getElementById("connectBtn");
+    let connectBtn = document.getElementById("connectBtn");
     if (connectBtn) {
       connectBtn.innerText = "✅ Connected";
       connectBtn.disabled = true;
@@ -753,7 +753,7 @@ export async function requestDraw() {
     document.getElementById("status").innerText = "✅ Draw requested!";
     
     // ✅ Update UI on successful wallet connection
-    const connectBtn = document.getElementById("connectBtn");
+    let connectBtn = document.getElementById("connectBtn");
     if (connectBtn) {
       connectBtn.innerText = "✅ Connected";
       connectBtn.disabled = true;
@@ -771,7 +771,7 @@ export async function requestDraw() {
 
     
     // ✅ UI updates AFTER successful connection
-    const connectBtn = document.getElementById("connectBtn");
+    let connectBtn = document.getElementById("connectBtn");
     if (connectBtn) {
       connectBtn.innerText = "✅ Connected";
       connectBtn.disabled = true;
