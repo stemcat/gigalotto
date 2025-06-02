@@ -582,6 +582,31 @@ export async function initWeb3() {
     provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
     userAccount = await signer.getAddress();
+    // ✅ UI updates AFTER wallet connection confirmed
+    userAccount = await signer.getAddress();
+
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) {
+      connectBtn.innerText = "✅ Connected";
+      connectBtn.disabled = true;
+      connectBtn.style.display = "none"; // Hide after connect
+    }
+
+    const depositSection = document.getElementById("depositSection");
+    if (depositSection) {
+      depositSection.style.display = "block";
+    }
+
+    const dashboard = document.getElementById("userDashboard");
+    if (dashboard) {
+      dashboard.style.display = "block";
+    }
+
+    const statusDiv = document.getElementById("connectionStatus");
+    if (statusDiv) {
+      statusDiv.innerText = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+    }
+
     contract = new ethers.Contract(contractAddress, abi, signer);
     
     // Setup event listeners
