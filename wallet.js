@@ -605,10 +605,17 @@ export async function initWeb3() {
       }
     });
 
+    // Update UI to show connected state
+    document.getElementById("userDashboard").style.display = "block";
+    document.getElementById("connectBtn").innerText = "🪙 Deposit ETH";
+    document.getElementById("connectBtn").onclick = connectAndDeposit;
+
     updateUI();
+    return true;
   } catch (e) {
     console.error("Init error:", e);
     document.getElementById("status").innerText = "⚠️ Connection failed.";
+    return false;
   }
 }
 
