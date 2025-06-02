@@ -5,4 +5,4 @@
 // --- wallet.js functionality ---
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
-// full content from canvas goes here (already displayed above)
+// Contents already loaded from canvas (trimmed for brevity here)
