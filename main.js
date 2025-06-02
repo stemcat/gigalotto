@@ -8,19 +8,29 @@ import {
 window.addEventListener("load", async () => {
   await initWeb3();
 
-  document
-    .getElementById("depositBtn")
-    .addEventListener("click", connectAndDeposit);
+  // The depositBtn doesn't exist in your HTML, but connectBtn does
+  document.getElementById("connectBtn").addEventListener("click", async () => {
+    try {
+      await initWeb3();
+
+      // If there's an amount entered, also do the deposit
+      const ethAmount = document.getElementById("ethAmount").value;
+      if (ethAmount && parseFloat(ethAmount) > 0) {
+        await connectAndDeposit();
+      }
+
+      updateUI();
+    } catch (e) {
+      console.error("Connection error:", e);
+      document.getElementById("status").innerText =
+        "⚠️ Connection failed: " + e.message;
+    }
+  });
+
   document
     .getElementById("withdrawBtn")
     .addEventListener("click", withdrawWinnings);
   document
     .getElementById("requestDrawBtn")
     .addEventListener("click", requestDraw);
-
-  // Update the connect button to only connect wallet without deposit
-  document.getElementById("connectBtn").addEventListener("click", async () => {
-    await initWeb3();
-    updateUI();
-  });
 });
