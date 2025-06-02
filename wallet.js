@@ -580,14 +580,14 @@ export async function initWeb3() {
   try {
     // Show connecting status
     document.getElementById("status").innerText = "⏳ Connecting to wallet...";
-    
+
     // Request account access - this triggers the MetaMask popup
-    await window.ethereum.request({ method: 'eth_requestAccounts' });
-    
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+
     provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
     userAccount = await signer.getAddress();
-    contract = new ethers.Contract(contractAddress, abi, signer);
+    contract = new ethers.Contract(contractAddress, abi[0], signer); // Fix: Use abi[0] instead of abi
 
     // Setup event listeners
     contract.on("WinnerSelected", (winner) => {
@@ -614,16 +614,17 @@ export async function initWeb3() {
     // Only update UI after successful connection
     document.getElementById("status").innerText = "✅ Wallet connected!";
     document.getElementById("userDashboard").style.display = "block";
-    
+
     // Important: Change the button text but keep the original click handler
     document.getElementById("connectBtn").innerText = "🪙 Deposit ETH";
     // Don't replace the onclick handler, just update the UI
-    
+
     await updateUI();
     return true;
   } catch (e) {
     console.error("Init error:", e);
-    document.getElementById("status").innerText = "⚠️ Connection failed: " + e.message;
+    document.getElementById("status").innerText =
+      "⚠️ Connection failed: " + e.message;
     return false;
   }
 }
@@ -915,24 +916,34 @@ document.addEventListener(
 // Add this fallback function to load basic jackpot info even if not connected
 export async function loadJackpotInfo() {
   if (!window.ethereum) return;
-  
+
   try {
     const provider = new ethers.BrowserProvider(window.ethereum);
-    const readOnlyContract = new ethers.Contract(contractAddress, abi, provider);
-    
+    const readOnlyContract = new ethers.Contract(
+      contractAddress,
+      abi[0],  // Fix: Use abi[0] instead of abi
+      provider
+    );
+
     const totalPool = await readOnlyContract.totalPool();
     const jackpotUsd = await readOnlyContract.getJackpotUsd();
     const targetUsd = await readOnlyContract.TARGET_USD();
     const last24hUsd = await readOnlyContract.last24hDepositUsd();
-    
-    document.getElementById("jackpot").innerHTML = 
-      `<strong>${ethers.formatEther(totalPool)} ETH</strong> ($${(Number(jackpotUsd) / 1e8).toFixed(2)})`;
-    document.getElementById("usd24h").innerText = 
-      `$${(Number(last24hUsd) / 1e8).toFixed(2)}`;
-    
+
+    document.getElementById(
+      "jackpot"
+    ).innerHTML = `<strong>${ethers.formatEther(totalPool)} ETH</strong> ($${(
+      Number(jackpotUsd) / 1e8
+    ).toFixed(2)})`;
+    document.getElementById("usd24h").innerText = `$${(
+      Number(last24hUsd) / 1e8
+    ).toFixed(2)}`;
+
     const percent = (Number(jackpotUsd) * 100) / Number(targetUsd);
-    document.getElementById("progressFill").style.width = 
-      `${Math.min(Number(percent), 100)}%`;
+    document.getElementById("progressFill").style.width = `${Math.min(
+      Number(percent),
+      100
+    )}%`;
   } catch (e) {
     console.error("Failed to load jackpot info:", e);
   }
