@@ -714,13 +714,33 @@ async function updateUI() {
     document.getElementById("userDeposit").innerText =
       ethers.formatEther(deposit);
 
+    // Calculate winning chance
+    const totalPool = await contract.totalPool();
+    const winChance = (Number(deposit) * 100) / Number(totalPool);
+
     document.getElementById("userAddress").innerText = `${userAccount.slice(
       0,
       6
     )}...${userAccount.slice(-4)}`;
+
+    // Update user dashboard with winning chance
+    document.getElementById("userDashboard").innerHTML = `
+      <p><strong>Connected:</strong> <span id="userAddress">${userAccount.slice(
+        0,
+        6
+      )}...${userAccount.slice(-4)}</span></p>
+      <p>
+        <strong>Your Total Deposits:</strong>
+        <span id="userDeposit">${ethers.formatEther(deposit)}</span> ETH
+      </p>
+      <p>
+        <strong>Your Winning Chance:</strong>
+        <span id="winChance">${winChance.toFixed(4)}%</span>
+      </p>
+    `;
+
     document.getElementById("userDashboard").style.display = "block";
 
-    const totalPool = await contract.totalPool();
     const jackpotUsd = await contract.getJackpotUsd();
     const targetUsd = await contract.TARGET_USD();
     const last24hUsd = await contract.last24hDepositUsd();
@@ -1046,39 +1066,54 @@ async function loadLeaderboard(contract) {
     const leaderboardContainer = document.getElementById("leaderboard");
     if (!leaderboardContainer) return;
 
-    // Get top depositors (requesting more to account for duplicates)
-    const [depositors, amounts] = await contract.getTopDepositors(10);
+    // Get all entries count
+    const entriesCount = await contract.getEntriesCount();
+    const count = Math.min(Number(entriesCount), 50); // Limit to 50 entries max
 
-    // Filter to unique addresses
-    const uniqueDepositors = [];
-    const uniqueAmounts = [];
-    const seen = new Set();
+    // Create a map to track unique depositors and their total amounts
+    const depositorMap = new Map();
 
-    for (let i = 0; i < depositors.length; i++) {
-      if (!seen.has(depositors[i])) {
-        seen.add(depositors[i]);
-        uniqueDepositors.push(depositors[i]);
-        uniqueAmounts.push(amounts[i]);
+    // Process entries to find unique depositors
+    for (let i = 0; i < count; i++) {
+      try {
+        const [address, _] = await contract.getEntry(i);
+        const amount = await contract.userDeposits(address);
 
-        // Stop after we have 5 unique depositors
-        if (uniqueDepositors.length >= 5) break;
+        // Add or update depositor in our map
+        if (depositorMap.has(address)) {
+          // We already have this address, but the contract should have the total
+          depositorMap.set(address, amount);
+        } else {
+          depositorMap.set(address, amount);
+        }
+      } catch (e) {
+        console.error(`Error fetching entry ${i}:`, e);
       }
     }
 
-    let html = `<h3>🏆 TOP DEPOSITORS</h3>`;
-    for (let i = 0; i < uniqueDepositors.length; i++) {
-      const display = `${uniqueDepositors[i].slice(0, 6)}...${uniqueDepositors[
-        i
-      ].slice(-4)}`;
-      const amount = ethers.formatEther(uniqueAmounts[i]);
+    // Convert map to arrays and sort by amount
+    const uniqueDepositors = Array.from(depositorMap.entries())
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5); // Take top 5
 
-      html += `
-        <div class="leaderboard-entry">
-          <span class="rank">${i + 1}.</span>
-          <span class="name">${display}</span>
-          <span class="amount">${amount} ETH</span>
-        </div>
-      `;
+    let html = `<h3>🏆 TOP DEPOSITORS</h3>`;
+
+    if (uniqueDepositors.length === 0) {
+      html += `<div class="leaderboard-entry">No depositors yet</div>`;
+    } else {
+      for (let i = 0; i < uniqueDepositors.length; i++) {
+        const [address, amount] = uniqueDepositors[i];
+        const display = `${address.slice(0, 6)}...${address.slice(-4)}`;
+        const amountEth = ethers.formatEther(amount);
+
+        html += `
+          <div class="leaderboard-entry">
+            <span class="rank">${i + 1}.</span>
+            <span class="name">${display}</span>
+            <span class="amount">${amountEth} ETH</span>
+          </div>
+        `;
+      }
     }
 
     leaderboardContainer.innerHTML = html;
@@ -1092,22 +1127,20 @@ function updateStatusMessage(jackpotUsd, targetUsd) {
   const statusElement = document.getElementById("status");
   if (!statusElement) return;
 
-  // Only show "Waiting for winner" if we've reached the target
-  if (jackpotUsd >= targetUsd) {
-    statusElement.innerHTML = `<p>Waiting for winner...</p>`;
-  } else {
-    // Calculate percentage of target
-    const percent = (jackpotUsd * 100) / targetUsd;
+  // Calculate percentage of target
+  const percent = (jackpotUsd * 100) / targetUsd;
 
-    if (percent < 25) {
-      statusElement.innerHTML = `<p>Join early for better odds! 🎯</p>`;
-    } else if (percent < 50) {
-      statusElement.innerHTML = `<p>The pot is growing! Don't miss out! 🚀</p>`;
-    } else if (percent < 75) {
-      statusElement.innerHTML = `<p>We're more than halfway there! 🔥</p>`;
-    } else {
-      statusElement.innerHTML = `<p>Almost at target! Last chance to join! ⏰</p>`;
-    }
+  // Only show "Waiting for winner" if we've reached the target
+  if (percent >= 100) {
+    statusElement.innerHTML = `<p>Waiting for winner...</p>`;
+  } else if (percent < 25) {
+    statusElement.innerHTML = `<p>Join early for better odds! 🎯</p>`;
+  } else if (percent < 50) {
+    statusElement.innerHTML = `<p>The pot is growing! Don't miss out! 🚀</p>`;
+  } else if (percent < 75) {
+    statusElement.innerHTML = `<p>We're more than halfway there! 🔥</p>`;
+  } else {
+    statusElement.innerHTML = `<p>Almost at target! Last chance to join! ⏰</p>`;
   }
 }
 
