@@ -24,7 +24,7 @@ function validateMinAmount(input) {
 window.validateMinAmount = validateMinAmount;
 
 window.addEventListener("load", async () => {
-  // Load basic jackpot info without requiring MetaMask
+  // Load basic jackpot info for all users using the public API approach
   await loadJackpotInfo();
 
   // Only try to check connection if MetaMask is available
