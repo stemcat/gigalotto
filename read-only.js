@@ -49,19 +49,50 @@ export async function getReadOnlyProvider() {
 // Load jackpot info
 export async function loadJackpotInfo() {
   try {
-    document.getElementById("jackpot").innerHTML =
-      "<strong>Loading...</strong>";
-    document.getElementById("usd24h").innerText = "Loading...";
+    // Show loading state but don't clear existing data immediately
+    const jackpotEl = document.getElementById("jackpot");
+    const usd24hEl = document.getElementById("usd24h");
+
+    // Only show loading if we don't have data yet
+    if (!jackpotEl.innerHTML.includes("ETH")) {
+      jackpotEl.innerHTML = "<strong>Loading...</strong>";
+    }
+    if (
+      usd24hEl.innerText === "" ||
+      usd24hEl.innerText === "Error loading data"
+    ) {
+      usd24hEl.innerText = "Loading...";
+    }
+
+    // Check if we have recent cached data (less than 2 minutes old)
+    const cachedData = localStorage.getItem("contractData");
+    if (cachedData) {
+      try {
+        const data = JSON.parse(cachedData);
+        const cacheAge = Date.now() - data.timestamp;
+
+        // Use cached data if less than 2 minutes old while fetching fresh data
+        if (cacheAge < 2 * 60 * 1000) {
+          console.log("Using cached data from", new Date(data.timestamp));
+          updateUIFromCachedData(data);
+        }
+      } catch (cacheError) {
+        console.error("Error parsing cached data:", cacheError);
+      }
+    }
 
     // Get provider
     const provider = await getReadOnlyProvider();
     const contract = new ethers.Contract(contractAddress, abi, provider);
 
-    // Get basic contract data
-    const totalPool = await contract.totalPool();
-    const jackpotUsd = await contract.getJackpotUsd();
-    const targetUsd = await contract.TARGET_USD();
-    const last24hUsd = await contract.last24hDepositUsd();
+    // Use Promise.all to fetch basic data in parallel
+    console.log("Fetching contract data in parallel...");
+    const [totalPool, jackpotUsd, targetUsd, last24hUsd] = await Promise.all([
+      contract.totalPool(),
+      contract.getJackpotUsd(),
+      contract.TARGET_USD(),
+      contract.last24hDepositUsd(),
+    ]);
 
     // Format values
     const totalPoolEth = ethers.formatEther(totalPool);
@@ -72,39 +103,45 @@ export async function loadJackpotInfo() {
     // Calculate percentage
     const percentComplete = (Number(jackpotUsd) * 100) / Number(targetUsd);
 
-    // Update UI
+    // Update UI with basic data immediately
     document.getElementById(
       "jackpot"
     ).innerHTML = `<strong>${totalPoolEth} ETH</strong> ($${jackpotUsdFormatted})`;
-
     document.getElementById("usd24h").innerText = `$${last24hUsdFormatted}`;
-
     document.getElementById("progressFill").style.width = `${Math.min(
       Number(percentComplete),
       100
     )}%`;
-
     updateStatusMessageFromPercent(percentComplete);
 
-    // Get top depositors
+    // Cache basic data immediately
+    const basicData = {
+      totalPoolEth,
+      jackpotUsdFormatted,
+      last24hUsdFormatted,
+      percentComplete,
+      timestamp: Date.now(),
+    };
+
+    localStorage.setItem("contractData", JSON.stringify(basicData));
+
+    // Fetch top depositors in the background
     try {
+      console.log("Fetching top depositors...");
+      document.getElementById("leaderboard").innerHTML =
+        "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Loading depositors...</div>";
+
       const entriesCount = await contract.getEntriesCount();
       const maxEntries = Math.min(Number(entriesCount), 20);
       const depositorMap = new Map();
 
-      // Get unique depositors
-      for (let i = 0; i < maxEntries; i++) {
-        try {
-          const entry = await contract.getEntry(i);
-          const address = entry[0];
-
-          if (!depositorMap.has(address)) {
-            const deposit = await contract.userDeposits(address);
-            depositorMap.set(address, deposit);
-          }
-        } catch (e) {
-          console.error(`Error fetching entry ${i}:`, e);
+      // Get unique depositors - process in batches of 5 for better performance
+      for (let i = 0; i < maxEntries; i += 5) {
+        const batchPromises = [];
+        for (let j = i; j < Math.min(i + 5, maxEntries); j++) {
+          batchPromises.push(fetchEntryData(contract, j, depositorMap));
         }
+        await Promise.all(batchPromises);
       }
 
       // Convert to array and sort
@@ -119,18 +156,14 @@ export async function loadJackpotInfo() {
       // Update leaderboard
       updateLeaderboardFromData(topDepositors);
 
-      // Cache data
-      localStorage.setItem(
-        "contractData",
-        JSON.stringify({
-          totalPoolEth,
-          jackpotUsdFormatted,
-          last24hUsdFormatted,
-          percentComplete,
-          topDepositors,
-          timestamp: Date.now(),
-        })
-      );
+      // Update cache with complete data
+      const completeData = {
+        ...basicData,
+        topDepositors,
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem("contractData", JSON.stringify(completeData));
     } catch (e) {
       console.error("Error fetching top depositors:", e);
       document.getElementById("leaderboard").innerHTML =
@@ -240,8 +273,42 @@ function updateStatusMessageFromPercent(percent) {
   }
 }
 
-// Setup auto refresh
+// Helper function to fetch entry data
+async function fetchEntryData(contract, index, depositorMap) {
+  try {
+    const entry = await contract.getEntry(index);
+    const address = entry[0];
+
+    if (!depositorMap.has(address)) {
+      const deposit = await contract.userDeposits(address);
+      depositorMap.set(address, deposit);
+    }
+  } catch (e) {
+    console.error(`Error fetching entry ${index}:`, e);
+  }
+}
+
+// Helper function to update UI from cached data
+function updateUIFromCachedData(data) {
+  document.getElementById(
+    "jackpot"
+  ).innerHTML = `<strong>${data.totalPoolEth} ETH</strong> ($${data.jackpotUsdFormatted})`;
+  document.getElementById("usd24h").innerText = `$${data.last24hUsdFormatted}`;
+  document.getElementById("progressFill").style.width = `${Math.min(
+    Number(data.percentComplete),
+    100
+  )}%`;
+  updateStatusMessageFromPercent(data.percentComplete);
+
+  if (data.topDepositors) {
+    updateLeaderboardFromData(data.topDepositors);
+  }
+}
+
+// Setup auto refresh with better timing
 export function setupAutoRefresh() {
   loadJackpotInfo();
-  setInterval(loadJackpotInfo, 30000);
+
+  // Use a more reasonable refresh interval (2 minutes)
+  setInterval(loadJackpotInfo, 120000);
 }
