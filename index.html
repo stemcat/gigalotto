@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪙</text></svg>"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎰</text></svg>"
     />
     <style>
       @font-face {
@@ -383,6 +383,33 @@
       </div>
 
       <div id="status">Not connected</div>
+
+      <!-- Add How It Works box -->
+      <div class="how-it-works">
+        <h3>🎮 How GIGA LOTTO Works</h3>
+        <div class="how-it-works-content">
+          <p>
+            <strong>1. Deposit ETH</strong> - Every deposit gives you a chance
+            to win proportional to your contribution.
+          </p>
+          <p>
+            <strong>2. Target Goal</strong> - The jackpot must reach $2.2B USD
+            value to be eligible for a draw.
+          </p>
+          <p>
+            <strong>3. Hold Period</strong> - Once the target is reached, it
+            must stay above target for 24 hours.
+          </p>
+          <p>
+            <strong>4. Activity Check</strong> - If deposits slow down (less
+            than $2.5M in 24h), the draw can be triggered.
+          </p>
+          <p>
+            <strong>5. Random Winner</strong> - A provably fair random selection
+            chooses one winner who takes the entire pot!
+          </p>
+        </div>
+      </div>
     </div>
 
     <footer>
@@ -466,3 +493,36 @@
     </dialog>
   </body>
 </html>
+
+<style>
+  /* Add styling for How It Works box */
+  .how-it-works {
+    background: #1a1a4a;
+    border: 2px solid #ffcc00;
+    padding: 15px;
+    margin: 20px 0;
+    text-align: left;
+    border-radius: 5px;
+  }
+
+  .how-it-works h3 {
+    color: #ffcc00;
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+  }
+
+  .how-it-works-content {
+    font-size: 0.8em;
+    line-height: 1.5;
+  }
+
+  .how-it-works-content p {
+    margin: 8px 0;
+  }
+
+  .how-it-works-content strong {
+    color: #00ffff;
+  }
+</style>
