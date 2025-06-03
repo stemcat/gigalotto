@@ -1088,12 +1088,45 @@ export async function checkIfConnected() {
   }
 }
 
-// Update loadJackpotInfo to work without MetaMask
+// Add a function to get a provider with fallbacks
+async function getReadOnlyProvider() {
+  // List of public RPC endpoints to try
+  const rpcUrls = [
+    "https://eth.llamarpc.com",
+    "https://ethereum.publicnode.com",
+    "https://rpc.ankr.com/eth",
+    "https://cloudflare-eth.com",
+  ];
+
+  // Try each RPC endpoint until one works
+  for (const url of rpcUrls) {
+    try {
+      const provider = new ethers.JsonRpcProvider(url);
+      // Test the provider with a simple call
+      await provider.getBlockNumber();
+      console.log(`Connected to ${url}`);
+      return provider;
+    } catch (e) {
+      console.error(`Failed to connect to ${url}:`, e);
+    }
+  }
+
+  // If all fail, throw an error
+  throw new Error("All RPC endpoints failed");
+}
+
+// Update loadJackpotInfo to use the fallback provider function
 export async function loadJackpotInfo() {
   try {
-    // Create a provider that doesn't rely on MetaMask
-    // Use a public Ethereum RPC endpoint
-    const provider = new ethers.JsonRpcProvider("https://eth.llamarpc.com");
+    if (!contractAddress) {
+      console.error("Contract address not defined");
+      document.getElementById("jackpot").innerHTML = "Contract not configured";
+      document.getElementById("usd24h").innerText = "Contract not configured";
+      return;
+    }
+
+    // Get a provider with fallbacks
+    const provider = await getReadOnlyProvider();
 
     const readOnlyContract = new ethers.Contract(
       contractAddress,
@@ -1101,37 +1134,77 @@ export async function loadJackpotInfo() {
       provider
     );
 
-    const totalPool = await readOnlyContract.totalPool();
-    const jackpotUsd = await readOnlyContract.getJackpotUsd();
-    const targetUsd = await readOnlyContract.TARGET_USD();
-    const last24hUsd = await readOnlyContract.last24hDepositUsd();
+    // Wrap each call in try/catch to handle individual failures
+    let totalPool, jackpotUsd, targetUsd, last24hUsd;
 
-    document.getElementById(
-      "jackpot"
-    ).innerHTML = `<strong>${ethers.formatEther(totalPool)} ETH</strong> ($${(
-      Number(jackpotUsd) / 1e8
-    ).toFixed(2)})`;
-    document.getElementById("usd24h").innerText = `$${(
-      Number(last24hUsd) / 1e8
-    ).toFixed(2)}`;
+    try {
+      totalPool = await readOnlyContract.totalPool();
+      document.getElementById(
+        "jackpot"
+      ).innerHTML = `<strong>${ethers.formatEther(totalPool)} ETH</strong>`;
+    } catch (e) {
+      console.error("Failed to load total pool:", e);
+      document.getElementById("jackpot").innerHTML = "Error loading data";
+    }
 
-    const percent = (Number(jackpotUsd) * 100) / Number(targetUsd);
-    document.getElementById("progressFill").style.width = `${Math.min(
-      Number(percent),
-      100
-    )}%`;
+    try {
+      jackpotUsd = await readOnlyContract.getJackpotUsd();
+      targetUsd = await readOnlyContract.TARGET_USD();
+
+      if (totalPool) {
+        document.getElementById(
+          "jackpot"
+        ).innerHTML = `<strong>${ethers.formatEther(
+          totalPool
+        )} ETH</strong> ($${(Number(jackpotUsd) / 1e8).toFixed(2)})`;
+      }
+
+      // Update progress bar
+      const percent = (Number(jackpotUsd) * 100) / Number(targetUsd);
+      document.getElementById("progressFill").style.width = `${Math.min(
+        Number(percent),
+        100
+      )}%`;
+
+      // Update status message
+      updateStatusMessage(Number(jackpotUsd), Number(targetUsd));
+    } catch (e) {
+      console.error("Failed to load jackpot USD:", e);
+    }
+
+    try {
+      last24hUsd = await readOnlyContract.last24hDepositUsd();
+      document.getElementById("usd24h").innerText = `$${(
+        Number(last24hUsd) / 1e8
+      ).toFixed(2)}`;
+    } catch (e) {
+      console.error("Failed to load 24h deposits:", e);
+      document.getElementById("usd24h").innerText = "Error loading data";
+    }
 
     // Also load leaderboard without requiring connection
-    await loadLeaderboard(readOnlyContract);
-
-    // Update status message based on jackpot progress
-    updateStatusMessage(Number(jackpotUsd), Number(targetUsd));
+    try {
+      await loadLeaderboard(readOnlyContract);
+    } catch (e) {
+      console.error("Failed to load leaderboard:", e);
+      const leaderboardContainer = document.getElementById("leaderboard");
+      if (leaderboardContainer) {
+        leaderboardContainer.innerHTML =
+          "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Error loading data</div>";
+      }
+    }
   } catch (e) {
     console.error("Failed to load jackpot info:", e);
     document.getElementById("jackpot").innerHTML = "Error loading data";
     document.getElementById("usd24h").innerText = "Error loading data";
     document.getElementById("status").innerText =
       "⚠️ Could not connect to blockchain";
+
+    const leaderboardContainer = document.getElementById("leaderboard");
+    if (leaderboardContainer) {
+      leaderboardContainer.innerHTML =
+        "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Error loading data</div>";
+    }
   }
 }
 
@@ -1143,7 +1216,7 @@ async function loadLeaderboard(contract) {
 
     // Get all entries count
     const entriesCount = await contract.getEntriesCount();
-    const count = Math.min(Number(entriesCount), 50); // Limit to 50 entries max
+    const count = Math.min(Number(entriesCount), 10); // Limit to 10 entries max to reduce RPC calls
 
     // Create a map to track unique depositors and their total amounts
     const depositorMap = new Map();
@@ -1155,12 +1228,7 @@ async function loadLeaderboard(contract) {
         const amount = await contract.userDeposits(address);
 
         // Add or update depositor in our map
-        if (depositorMap.has(address)) {
-          // We already have this address, but the contract should have the total
-          depositorMap.set(address, amount);
-        } else {
-          depositorMap.set(address, amount);
-        }
+        depositorMap.set(address, amount);
       } catch (e) {
         console.error(`Error fetching entry ${i}:`, e);
       }
@@ -1194,6 +1262,11 @@ async function loadLeaderboard(contract) {
     leaderboardContainer.innerHTML = html;
   } catch (e) {
     console.error("Leaderboard error:", e);
+    const leaderboardContainer = document.getElementById("leaderboard");
+    if (leaderboardContainer) {
+      leaderboardContainer.innerHTML =
+        "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Error loading data</div>";
+    }
   }
 }
 
