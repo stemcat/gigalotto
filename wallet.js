@@ -16,7 +16,7 @@ const abi = [
   "function requestDraw()",
   "function winner() view returns (address)",
   "function holdStartTimestamp() view returns (uint256)",
-  "function canDraw() view returns (bool)"
+  "function canDraw() view returns (bool)",
 ];
 
 // Global variables
@@ -148,12 +148,14 @@ export async function updateUI() {
 
   try {
     const deposit = await contract.userDeposits(userAccount);
-    
+
     // Calculate winning chance
     const totalPool = await contract.totalPool();
-    const winChance = totalPool > 0 
-      ? (Number(ethers.formatEther(deposit)) * 100) / Number(ethers.formatEther(totalPool))
-      : 0;
+    const winChance =
+      totalPool > 0
+        ? (Number(ethers.formatEther(deposit)) * 100) /
+          Number(ethers.formatEther(totalPool))
+        : 0;
 
     // Format winning chance with special handling for very small percentages
     let winChanceDisplay;
@@ -164,8 +166,12 @@ export async function updateUI() {
     }
 
     // Update user dashboard
-    document.getElementById("userAddress").innerText = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-    document.getElementById("userDeposit").innerText = ethers.formatEther(deposit);
+    document.getElementById("userAddress").innerText = `${userAccount.slice(
+      0,
+      6
+    )}...${userAccount.slice(-4)}`;
+    document.getElementById("userDeposit").innerText =
+      ethers.formatEther(deposit);
     document.getElementById("winChance").innerText = winChanceDisplay;
     document.getElementById("userDashboard").style.display = "block";
 
@@ -181,16 +187,19 @@ async function checkWinnerAndDraw() {
   try {
     const winner = await contract.winner();
     const canDraw = await contract.canDraw();
-    
+
     if (winner === userAccount) {
       document.getElementById("status").innerHTML =
         '<div class="winner-banner">🎉 YOU ARE THE WINNER! 🎉</div>';
       document.getElementById("withdrawBtn").style.display = "inline-block";
     } else if (winner !== "0x0000000000000000000000000000000000000000") {
-      document.getElementById("status").innerHTML = 
-        `<p>🏆 Winner: ${winner.slice(0, 6)}...${winner.slice(-4)}</p>`;
+      document.getElementById(
+        "status"
+      ).innerHTML = `<p>🏆 Winner: ${winner.slice(0, 6)}...${winner.slice(
+        -4
+      )}</p>`;
     }
-    
+
     // Show draw button if user is owner and draw is possible
     if (canDraw) {
       document.getElementById("requestDrawBtn").style.display = "inline-block";
@@ -254,7 +263,9 @@ function triggerConfetti() {
     confetti.style.fontSize = "20px";
     confetti.style.left = `${Math.random() * 100}vw`;
     confetti.style.top = "-30px";
-    confetti.style.animation = `confettiFall ${Math.random() * 3 + 2}s linear forwards`;
+    confetti.style.animation = `confettiFall ${
+      Math.random() * 3 + 2
+    }s linear forwards`;
     document.body.appendChild(confetti);
 
     setTimeout(() => confetti.remove(), 5000);
@@ -271,10 +282,10 @@ function showTermsModal() {
       resolve(true); // Proceed anyway if modal not found
       return;
     }
-    
+
     console.log("Opening terms modal");
     modal.showModal();
-    
+
     // Set up accept/decline handlers
     window.acceptTerms = () => {
       console.log("Terms accepted from modal");
@@ -282,13 +293,11 @@ function showTermsModal() {
       modal.close();
       resolve(true);
     };
-    
+
     window.declineTerms = () => {
       console.log("Terms declined from modal");
       modal.close();
       resolve(false);
     };
   });
-}
-  return await initWeb3();
 }
