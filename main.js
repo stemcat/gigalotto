@@ -24,14 +24,31 @@ function validateMinAmount(input) {
 window.validateMinAmount = validateMinAmount;
 
 window.addEventListener("load", async () => {
-  // Load basic jackpot info without requiring connection
+  // Load basic jackpot info without requiring MetaMask
   await loadJackpotInfo();
 
-  // Check if already connected
-  await checkIfConnected();
+  // Only try to check connection if MetaMask is available
+  if (window.ethereum) {
+    await checkIfConnected();
+  } else {
+    // Update UI to show MetaMask is required for participation
+    document.getElementById("status").innerText =
+      "⚠️ Please install MetaMask to participate";
+  }
 
   document.getElementById("connectBtn").addEventListener("click", async () => {
     try {
+      // Check if MetaMask is installed
+      if (!window.ethereum) {
+        document.getElementById("status").innerText =
+          "⚠️ Please install MetaMask to participate";
+        // Maybe open MetaMask download page
+        if (confirm("MetaMask is required. Would you like to install it?")) {
+          window.open("https://metamask.io/download/", "_blank");
+        }
+        return;
+      }
+
       // If we're not connected yet, connect first
       if (!getUserAccount()) {
         const connected = await connectWallet();

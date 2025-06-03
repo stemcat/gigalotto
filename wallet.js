@@ -1088,12 +1088,13 @@ export async function checkIfConnected() {
   }
 }
 
-// Update loadJackpotInfo to also load leaderboard
+// Update loadJackpotInfo to work without MetaMask
 export async function loadJackpotInfo() {
-  if (!window.ethereum) return;
-
   try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    // Create a provider that doesn't rely on MetaMask
+    // Use a public Ethereum RPC endpoint
+    const provider = new ethers.JsonRpcProvider("https://eth.llamarpc.com");
+
     const readOnlyContract = new ethers.Contract(
       contractAddress,
       abi[0],
@@ -1127,6 +1128,10 @@ export async function loadJackpotInfo() {
     updateStatusMessage(Number(jackpotUsd), Number(targetUsd));
   } catch (e) {
     console.error("Failed to load jackpot info:", e);
+    document.getElementById("jackpot").innerHTML = "Error loading data";
+    document.getElementById("usd24h").innerText = "Error loading data";
+    document.getElementById("status").innerText =
+      "⚠️ Could not connect to blockchain";
   }
 }
 
