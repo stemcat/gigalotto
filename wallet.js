@@ -579,7 +579,7 @@ export async function initWeb3() {
 
   try {
     // Show connecting status
-    document.getElementById("status").innerText = "⏳ Connecting to wallet...";
+    document.getElementById("status").innerText = "⏳ Connecting wallet...";
 
     // Request account access - this triggers the MetaMask popup
     await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -662,8 +662,8 @@ export async function connectAndDeposit() {
     // Play sound using Web Audio API
     playCoinSound();
 
-    // Show coin burst animation
-    showCoinBurst();
+    // Show full-page confetti instead of coin burst
+    triggerConfetti();
 
     // Show share modal
     const modal = document.getElementById("shareModal");
@@ -839,7 +839,7 @@ async function checkWinnerAndDraw() {
       } else if (percent < 25) {
         document.getElementById(
           "status"
-        ).innerHTML = `<p>Join early for better odds! 🎯</p>`;
+        ).innerHTML = `<p>The jackpot is just getting started! 🚀</p>`;
       } else if (percent < 50) {
         document.getElementById(
           "status"
@@ -1189,7 +1189,7 @@ function updateStatusMessage(jackpotUsd, targetUsd) {
   if (percent >= 100) {
     statusElement.innerHTML = `<p>Waiting for winner...</p>`;
   } else if (percent < 25) {
-    statusElement.innerHTML = `<p>Join early for better odds! 🎯</p>`;
+    statusElement.innerHTML = `<p>The jackpot is just getting started! 🚀</p>`;
   } else if (percent < 50) {
     statusElement.innerHTML = `<p>The pot is growing! Don't miss out! 🚀</p>`;
   } else if (percent < 75) {
