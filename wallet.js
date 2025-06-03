@@ -32,6 +32,7 @@ export function getUserAccount() {
 
 // Handle wallet connection
 export async function initWeb3() {
+  console.log("Initializing Web3...");
   if (!window.ethereum) {
     document.getElementById("status").innerText = "⚠️ Please install MetaMask.";
     return false;
@@ -41,16 +42,71 @@ export async function initWeb3() {
     // Show connecting status
     document.getElementById("status").innerText = "⏳ Connecting wallet...";
 
+    // Check if we're on Sepolia
+    const chainId = await window.ethereum.request({ method: "eth_chainId" });
+    console.log("Current chain ID:", chainId);
+
+    // Sepolia chain ID is 0xaa36a7 (11155111 in decimal)
+    if (chainId !== "0xaa36a7") {
+      console.log("Not on Sepolia, requesting network switch");
+      document.getElementById("status").innerText =
+        "⏳ Switching to Sepolia testnet...";
+
+      try {
+        // Try to switch to Sepolia
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0xaa36a7" }], // Sepolia chain ID
+        });
+      } catch (switchError) {
+        // This error code indicates that the chain has not been added to MetaMask
+        if (switchError.code === 4902) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0xaa36a7",
+                  chainName: "Sepolia Testnet",
+                  nativeCurrency: {
+                    name: "Sepolia ETH",
+                    symbol: "ETH",
+                    decimals: 18,
+                  },
+                  rpcUrls: ["https://rpc.sepolia.org"],
+                  blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                },
+              ],
+            });
+          } catch (addError) {
+            console.error("Failed to add Sepolia network:", addError);
+            document.getElementById("status").innerText =
+              "⚠️ Please switch to Sepolia testnet manually in MetaMask";
+            return false;
+          }
+        } else {
+          console.error("Failed to switch to Sepolia:", switchError);
+          document.getElementById("status").innerText =
+            "⚠️ Failed to switch to Sepolia testnet";
+          return false;
+        }
+      }
+    }
+
     // Request account access - this triggers the MetaMask popup
     await window.ethereum.request({ method: "eth_requestAccounts" });
+    console.log("Account access granted");
 
     provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
     userAccount = await signer.getAddress();
+    console.log("Connected to account:", userAccount);
+
     contract = new ethers.Contract(contractAddress, abi, signer);
 
     // Only update UI after successful connection
-    document.getElementById("status").innerText = "✅ Wallet connected!";
+    document.getElementById("status").innerText =
+      "✅ Wallet connected to Sepolia!";
     document.getElementById("userDashboard").style.display = "block";
 
     // Important: Change the button text but keep the original click handler

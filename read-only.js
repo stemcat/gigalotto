@@ -12,27 +12,38 @@ const abi = [
   "function userDeposits(address user) view returns (uint256)",
 ];
 
-// Get a provider with fallbacks
+// Get a provider with fallbacks - UPDATED FOR SEPOLIA
 export async function getReadOnlyProvider() {
+  console.log("Getting Sepolia testnet provider...");
   const rpcUrls = [
-    "https://eth.llamarpc.com",
-    "https://ethereum.publicnode.com",
-    "https://rpc.ankr.com/eth",
-    "https://cloudflare-eth.com",
+    "https://rpc.sepolia.org",
+    "https://eth-sepolia.public.blastapi.io",
+    "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura key
+    "https://rpc2.sepolia.org",
   ];
 
   for (const url of rpcUrls) {
     try {
+      console.log(`Trying Sepolia provider: ${url}`);
       const provider = new ethers.JsonRpcProvider(url);
+      const network = await provider.getNetwork();
+      console.log(`Connected to network: ${network.name} (${network.chainId})`);
+
+      // Verify we're on Sepolia (chainId 11155111)
+      if (network.chainId !== 11155111n) {
+        console.warn(`Provider ${url} is not on Sepolia testnet`);
+        continue;
+      }
+
       await provider.getBlockNumber();
-      console.log(`Connected to ${url}`);
+      console.log(`Successfully connected to Sepolia via ${url}`);
       return provider;
     } catch (e) {
       console.error(`Failed to connect to ${url}:`, e);
     }
   }
 
-  throw new Error("All RPC endpoints failed");
+  throw new Error("All Sepolia RPC endpoints failed");
 }
 
 // Load jackpot info
