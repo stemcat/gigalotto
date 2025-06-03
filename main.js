@@ -8,7 +8,7 @@ import {
   connectWallet,
 } from "./wallet.js";
 
-import { loadJackpotInfo, setupAutoRefresh } from "./read-only.js";
+import { setupAutoRefresh } from "./read-only.js";
 
 // Add validation function for minimum amount with debounce
 let debounceTimeout;
@@ -24,6 +24,37 @@ function validateMinAmount(input) {
 // Make it available globally
 window.validateMinAmount = validateMinAmount;
 
+// Share on Twitter function
+window.shareOnTwitter = function () {
+  const text = encodeURIComponent(
+    "I just joined the $2.2B #GigaLotto on-chain lottery! 🤑 Join me at "
+  );
+  const url = encodeURIComponent(window.location.href);
+  window.open(
+    `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
+    "_blank"
+  );
+  document.getElementById("shareModal").close();
+};
+
+// Terms functions
+window.acceptTerms = function () {
+  localStorage.setItem("termsAccepted", "true");
+  document.getElementById("termsModal").close();
+  initWeb3();
+};
+
+window.declineTerms = function () {
+  document.getElementById("termsModal").close();
+  document.getElementById("status").innerText =
+    "⚠️ You must accept the terms to continue";
+};
+
+window.showTermsModal = function () {
+  document.getElementById("termsModal").showModal();
+};
+
+// Initialize on page load
 window.addEventListener("load", async () => {
   // Load basic jackpot info for all users using the public API approach
   setupAutoRefresh();
@@ -37,6 +68,7 @@ window.addEventListener("load", async () => {
       "⚠️ Please install MetaMask to participate";
   }
 
+  // Set up connect button
   document.getElementById("connectBtn").addEventListener("click", async () => {
     try {
       // Check if MetaMask is installed
@@ -71,6 +103,7 @@ window.addEventListener("load", async () => {
     }
   });
 
+  // Set up other buttons
   document
     .getElementById("withdrawBtn")
     .addEventListener("click", withdrawWinnings);
