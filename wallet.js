@@ -976,7 +976,29 @@ function shareOnTwitter() {
 // Make it available globally
 window.shareOnTwitter = shareOnTwitter;
 
-// Add this fallback function to load basic jackpot info even if not connected
+// Add this function to check if already connected
+export async function checkIfConnected() {
+  if (!window.ethereum) return false;
+
+  try {
+    // Check if already connected without prompting
+    const accounts = await window.ethereum.request({
+      method: "eth_accounts", // This doesn't trigger the MetaMask popup
+    });
+
+    if (accounts && accounts.length > 0) {
+      // User is already connected, initialize everything
+      await initWeb3();
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("Connection check failed:", e);
+    return false;
+  }
+}
+
+// Update loadJackpotInfo to also load leaderboard
 export async function loadJackpotInfo() {
   if (!window.ethereum) return;
 
@@ -984,7 +1006,7 @@ export async function loadJackpotInfo() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const readOnlyContract = new ethers.Contract(
       contractAddress,
-      abi[0], // Fix: Use abi[0] instead of abi
+      abi[0],
       provider
     );
 
@@ -1007,8 +1029,69 @@ export async function loadJackpotInfo() {
       Number(percent),
       100
     )}%`;
+
+    // Also load leaderboard without requiring connection
+    await loadLeaderboard(readOnlyContract);
+
+    // Update status message based on jackpot progress
+    updateStatusMessage(Number(jackpotUsd), Number(targetUsd));
   } catch (e) {
     console.error("Failed to load jackpot info:", e);
+  }
+}
+
+// Function to load leaderboard without requiring connection
+async function loadLeaderboard(contract) {
+  try {
+    const leaderboardContainer = document.getElementById("leaderboard");
+    if (!leaderboardContainer) return;
+
+    // Get top 5 depositors
+    const [depositors, amounts] = await contract.getTopDepositors(5);
+
+    let html = `<h3>🏆 TOP DEPOSITORS</h3>`;
+    for (let i = 0; i < depositors.length; i++) {
+      const display = `${depositors[i].slice(0, 6)}...${depositors[i].slice(
+        -4
+      )}`;
+      const amount = ethers.formatEther(amounts[i]);
+
+      html += `
+        <div class="leaderboard-entry">
+          <span class="rank">${i + 1}.</span>
+          <span class="name">${display}</span>
+          <span class="amount">${amount} ETH</span>
+        </div>
+      `;
+    }
+
+    leaderboardContainer.innerHTML = html;
+  } catch (e) {
+    console.error("Leaderboard error:", e);
+  }
+}
+
+// Function to update status message based on jackpot progress
+function updateStatusMessage(jackpotUsd, targetUsd) {
+  const statusElement = document.getElementById("status");
+  if (!statusElement) return;
+
+  // Only show "Waiting for winner" if we've reached the target
+  if (jackpotUsd >= targetUsd) {
+    statusElement.innerHTML = `<p>Waiting for winner...</p>`;
+  } else {
+    // Calculate percentage of target
+    const percent = (jackpotUsd * 100) / targetUsd;
+
+    if (percent < 25) {
+      statusElement.innerHTML = `<p>Join early for better odds! 🎯</p>`;
+    } else if (percent < 50) {
+      statusElement.innerHTML = `<p>The pot is growing! Don't miss out! 🚀</p>`;
+    } else if (percent < 75) {
+      statusElement.innerHTML = `<p>We're more than halfway there! 🔥</p>`;
+    } else {
+      statusElement.innerHTML = `<p>Almost at target! Last chance to join! ⏰</p>`;
+    }
   }
 }
 

@@ -5,13 +5,18 @@ import {
   requestDraw,
   loadJackpotInfo,
   getUserAccount,
+  checkIfConnected,
 } from "./wallet.js";
 
-// Add validation function for minimum amount
+// Add validation function for minimum amount with debounce
+let debounceTimeout;
 function validateMinAmount(input) {
-  if (parseFloat(input.value) < 0.001) {
-    input.value = 0.001;
-  }
+  clearTimeout(debounceTimeout);
+  debounceTimeout = setTimeout(() => {
+    if (input.value && parseFloat(input.value) < 0.001) {
+      input.value = 0.001;
+    }
+  }, 1000); // Only validate after user stops typing for 1 second
 }
 
 // Make it available globally
@@ -20,6 +25,9 @@ window.validateMinAmount = validateMinAmount;
 window.addEventListener("load", async () => {
   // Load basic jackpot info without requiring connection
   await loadJackpotInfo();
+
+  // Check if already connected
+  await checkIfConnected();
 
   document.getElementById("connectBtn").addEventListener("click", async () => {
     try {
