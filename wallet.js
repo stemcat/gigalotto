@@ -568,6 +568,11 @@ export async function loadJackpotInfo() {
   let contract;
 
   try {
+    // Show loading state
+    document.getElementById("jackpot").innerHTML =
+      "<strong>Loading...</strong>";
+    document.getElementById("usd24h").innerText = "Loading...";
+
     // Get a working provider
     provider = await getReadOnlyProvider();
 

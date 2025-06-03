@@ -3,11 +3,12 @@ import {
   connectAndDeposit,
   withdrawWinnings,
   requestDraw,
-  loadJackpotInfo,
   getUserAccount,
   checkIfConnected,
   connectWallet,
 } from "./wallet.js";
+
+import { loadJackpotInfo, setupAutoRefresh } from "./read-only.js";
 
 // Add validation function for minimum amount with debounce
 let debounceTimeout;
@@ -25,7 +26,7 @@ window.validateMinAmount = validateMinAmount;
 
 window.addEventListener("load", async () => {
   // Load basic jackpot info for all users using the public API approach
-  await loadJackpotInfo();
+  setupAutoRefresh();
 
   // Only try to check connection if MetaMask is available
   if (window.ethereum) {
