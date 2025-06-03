@@ -415,5 +415,54 @@
         ❌ Close
       </button>
     </dialog>
+
+    <dialog
+      id="termsModal"
+      style="
+        background: #1a0c3a;
+        color: #fff;
+        padding: 20px;
+        border: 4px solid #ff00ff;
+        font-family: 'Press Start 2P';
+        max-width: 500px;
+        z-index: 10000;
+      "
+    >
+      <h3>Terms and Conditions</h3>
+      <div
+        style="
+          max-height: 300px;
+          overflow-y: auto;
+          margin: 15px 0;
+          font-size: 0.8em;
+          line-height: 1.5;
+        "
+      >
+        <p>By using GIGA LOTTO, you agree to the following terms:</p>
+        <p>
+          1. You are at least 18 years old and legally allowed to participate in
+          blockchain-based games in your jurisdiction.
+        </p>
+        <p>2. You understand that blockchain transactions are irreversible.</p>
+        <p>
+          3. You acknowledge the inherent risks of smart contracts and
+          cryptocurrency.
+        </p>
+        <p>4. You are responsible for the security of your own wallet.</p>
+        <p>5. GIGA LOTTO is provided "as is" without warranties of any kind.</p>
+        <p>
+          For full terms, please visit
+          <a href="terms.html" style="color: #ff00ff">our Terms page</a>.
+        </p>
+      </div>
+      <div
+        style="display: flex; justify-content: space-between; margin-top: 20px"
+      >
+        <button onclick="acceptTerms()" style="background: #0f0">Accept</button>
+        <button onclick="declineTerms()" style="background: #f00">
+          Decline
+        </button>
+      </div>
+    </dialog>
   </body>
 </html>

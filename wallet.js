@@ -672,8 +672,15 @@ export async function connectAndDeposit() {
     updateUI();
   } catch (e) {
     console.error("Deposit error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Deposit failed: " + e.message;
+
+    // Simplify error message for user rejection
+    if (e.message && e.message.includes("user rejected")) {
+      document.getElementById("status").innerText =
+        "⚠️ Deposit failed: user rejected transaction";
+    } else {
+      document.getElementById("status").innerText =
+        "⚠️ Deposit failed: " + e.message.split("(")[0].trim();
+    }
   }
 }
 
@@ -729,6 +736,14 @@ async function updateUI() {
     const totalPool = await contract.totalPool();
     const winChance = (Number(deposit) * 100) / Number(totalPool);
 
+    // Format winning chance with special handling for very small percentages
+    let winChanceDisplay;
+    if (winChance < 0.01) {
+      winChanceDisplay = "less than 0.01%";
+    } else {
+      winChanceDisplay = winChance.toFixed(2) + "%";
+    }
+
     document.getElementById("userAddress").innerText = `${userAccount.slice(
       0,
       6
@@ -746,7 +761,7 @@ async function updateUI() {
       </p>
       <p>
         <strong>Your Winning Chance:</strong>
-        <span id="winChance">${winChance.toFixed(2)}%</span>
+        <span id="winChance">${winChanceDisplay}</span>
       </p>
     `;
 
@@ -1220,4 +1235,52 @@ function handleDisconnect() {
 
   // Load basic info that doesn't require connection
   loadJackpotInfo();
+}
+
+// Add these functions for terms and conditions handling
+function showTermsModal() {
+  const modal = document.getElementById("termsModal");
+  if (modal?.showModal) {
+    modal.showModal();
+    return new Promise((resolve) => {
+      window.termsAccepted = resolve;
+    });
+  }
+  return Promise.resolve(false);
+}
+
+async function acceptTerms() {
+  document.getElementById("termsModal").close();
+  localStorage.setItem("termsAccepted", "true");
+  if (window.termsAccepted) window.termsAccepted(true);
+}
+
+async function declineTerms() {
+  document.getElementById("termsModal").close();
+  if (window.termsAccepted) window.termsAccepted(false);
+}
+
+// Make these functions available globally
+window.showTermsModal = showTermsModal;
+window.acceptTerms = acceptTerms;
+window.declineTerms = declineTerms;
+
+// Modify the connect button click handler
+export async function connectWallet() {
+  // Check if terms were already accepted
+  const termsAccepted = localStorage.getItem("termsAccepted") === "true";
+
+  if (!termsAccepted) {
+    // Show terms modal and wait for user response
+    const accepted = await showTermsModal();
+    if (!accepted) {
+      // User declined terms
+      document.getElementById("status").innerText =
+        "⚠️ You must accept the terms to continue";
+      return false;
+    }
+  }
+
+  // Continue with wallet connection
+  return await initWeb3();
 }

@@ -6,6 +6,7 @@ import {
   loadJackpotInfo,
   getUserAccount,
   checkIfConnected,
+  connectWallet,
 } from "./wallet.js";
 
 // Add validation function for minimum amount with debounce
@@ -33,7 +34,7 @@ window.addEventListener("load", async () => {
     try {
       // If we're not connected yet, connect first
       if (!getUserAccount()) {
-        const connected = await initWeb3();
+        const connected = await connectWallet();
         if (!connected) return;
       }
 
