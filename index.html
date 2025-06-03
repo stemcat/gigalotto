@@ -351,6 +351,8 @@
           placeholder="Amount in ETH"
           min="0.001"
           step="0.001"
+          onchange="validateMinAmount(this)"
+          oninput="validateMinAmount(this)"
         />
         <button id="connectBtn">🔌 Connect Wallet</button>
       </div>

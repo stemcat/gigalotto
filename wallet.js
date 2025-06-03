@@ -888,24 +888,55 @@ let coinBuffer;
 async function initAudio() {
   try {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // Use a different sound URL that doesn't have CORS issues
     const response = await fetch(
-      "https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-coin-207.mp3"
+      "https://assets.soundon.fm/sounds/coin-drop.mp3"
     );
     const arrayBuffer = await response.arrayBuffer();
     coinBuffer = await audioContext.decodeAudioData(arrayBuffer);
   } catch (e) {
     console.error("Audio init failed:", e);
+    // Fallback - create a simple beep sound if fetch fails
+    if (audioContext) {
+      try {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800;
+        gainNode.gain.value = 0.1;
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+      } catch (err) {
+        console.error("Fallback sound failed:", err);
+      }
+    }
   }
 }
 
 function playCoinSound() {
-  if (!audioContext || !coinBuffer) return;
+  if (!audioContext) {
+    initAudio();
+    return;
+  }
 
   try {
-    const source = audioContext.createBufferSource();
-    source.buffer = coinBuffer;
-    source.connect(audioContext.destination);
-    source.start();
+    if (coinBuffer) {
+      const source = audioContext.createBufferSource();
+      source.buffer = coinBuffer;
+      source.connect(audioContext.destination);
+      source.start();
+    } else {
+      // Fallback - create a simple beep sound
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.frequency.value = 800;
+      gainNode.gain.value = 0.1;
+      oscillator.start();
+      setTimeout(() => oscillator.stop(), 200);
+    }
   } catch (e) {
     console.error("Sound play failed:", e);
   }
@@ -979,4 +1010,9 @@ export async function loadJackpotInfo() {
   } catch (e) {
     console.error("Failed to load jackpot info:", e);
   }
+}
+
+// Add this function to get the user account
+export function getUserAccount() {
+  return userAccount;
 }
