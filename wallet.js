@@ -587,7 +587,7 @@ export async function initWeb3() {
     provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
     userAccount = await signer.getAddress();
-    contract = new ethers.Contract(contractAddress, abi[0], signer); // Fix: Use abi[0] instead of abi
+    contract = new ethers.Contract(contractAddress, abi[0], signer);
 
     // Setup event listeners
     contract.on("WinnerSelected", (winner) => {
@@ -608,6 +608,17 @@ export async function initWeb3() {
       if (winner === userAccount) {
         document.getElementById("status").innerHTML =
           '<div class="winner-banner">✅ $2.2B CLAIMED! HISTORY MADE!</div>';
+      }
+    });
+
+    // Listen for account changes or disconnection
+    window.ethereum.on("accountsChanged", (accounts) => {
+      if (accounts.length === 0) {
+        // User disconnected their wallet
+        handleDisconnect();
+      } else {
+        // User switched accounts, reinitialize
+        initWeb3();
       }
     });
 
@@ -735,7 +746,7 @@ async function updateUI() {
       </p>
       <p>
         <strong>Your Winning Chance:</strong>
-        <span id="winChance">${winChance.toFixed(4)}%</span>
+        <span id="winChance">${winChance.toFixed(2)}%</span>
       </p>
     `;
 
@@ -805,6 +816,9 @@ async function checkWinnerAndDraw() {
   try {
     const winner = await contract.winner();
     const canDraw = await contract.canDraw();
+    const jackpotUsd = await contract.getJackpotUsd();
+    const targetUsd = await contract.TARGET_USD();
+    const percent = (Number(jackpotUsd) * 100) / Number(targetUsd);
 
     if (winner === userAccount) {
       document.getElementById("status").innerHTML =
@@ -817,9 +831,28 @@ async function checkWinnerAndDraw() {
         -4
       )}</p>`;
     } else {
-      document.getElementById(
-        "status"
-      ).innerHTML = `<p>Waiting for winner...</p>`;
+      // Only show "Waiting for winner" if we've reached the target
+      if (percent >= 100) {
+        document.getElementById(
+          "status"
+        ).innerHTML = `<p>Waiting for winner...</p>`;
+      } else if (percent < 25) {
+        document.getElementById(
+          "status"
+        ).innerHTML = `<p>Join early for better odds! 🎯</p>`;
+      } else if (percent < 50) {
+        document.getElementById(
+          "status"
+        ).innerHTML = `<p>The pot is growing! Don't miss out! 🚀</p>`;
+      } else if (percent < 75) {
+        document.getElementById(
+          "status"
+        ).innerHTML = `<p>We're more than halfway there! 🔥</p>`;
+      } else {
+        document.getElementById(
+          "status"
+        ).innerHTML = `<p>Almost at target! Last chance to join! ⏰</p>`;
+      }
     }
 
     if (canDraw) {
@@ -859,21 +892,43 @@ async function displayLeaderboard() {
     const leaderboardContainer = document.getElementById("leaderboard");
     if (!leaderboardContainer) return;
 
-    // Get top 5 depositors
-    const [depositors, amounts] = await contract.getTopDepositors(5);
+    // Create a map to track unique depositors and their amounts
+    const depositorMap = new Map();
+
+    // Get all entries count
+    const entriesCount = await contract.getEntriesCount();
+    const count = Math.min(Number(entriesCount), 50); // Limit to 50 entries max
+
+    // Process entries to find unique depositors
+    for (let i = 0; i < count; i++) {
+      try {
+        const [address, _] = await contract.getEntry(i);
+        const amount = await contract.userDeposits(address);
+
+        // Add or update depositor in our map
+        depositorMap.set(address, amount);
+      } catch (e) {
+        console.error(`Error fetching entry ${i}:`, e);
+      }
+    }
+
+    // Convert map to arrays and sort by amount
+    const uniqueDepositors = Array.from(depositorMap.entries())
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 5); // Take top 5
 
     let html = `<h3>🏆 TOP DEPOSITORS</h3>`;
-    for (let i = 0; i < depositors.length; i++) {
-      const ens = await resolveENS(depositors[i]);
-      const display =
-        ens || `${depositors[i].slice(0, 6)}...${depositors[i].slice(-4)}`;
-      const amount = ethers.formatEther(amounts[i]);
+    for (let i = 0; i < uniqueDepositors.length; i++) {
+      const [address, amount] = uniqueDepositors[i];
+      const ens = await resolveENS(address);
+      const display = ens || `${address.slice(0, 6)}...${address.slice(-4)}`;
+      const amountEth = ethers.formatEther(amount);
 
       html += `
         <div class="leaderboard-entry">
           <span class="rank">${i + 1}.</span>
           <span class="name">${display}</span>
-          <span class="amount">${amount} ETH</span>
+          <span class="amount">${amountEth} ETH</span>
         </div>
       `;
     }
@@ -1147,4 +1202,22 @@ function updateStatusMessage(jackpotUsd, targetUsd) {
 // Add this function to get the user account
 export function getUserAccount() {
   return userAccount;
+}
+
+// Handle wallet disconnection
+function handleDisconnect() {
+  userAccount = null;
+  provider = null;
+  signer = null;
+  contract = null;
+
+  // Update UI to show disconnected state
+  document.getElementById("connectBtn").innerText = "🔌 Connect Wallet";
+  document.getElementById("userDashboard").style.display = "none";
+  document.getElementById("status").innerText = "Wallet disconnected";
+  document.getElementById("withdrawBtn").style.display = "none";
+  document.getElementById("requestDrawBtn").style.display = "none";
+
+  // Load basic info that doesn't require connection
+  loadJackpotInfo();
 }
