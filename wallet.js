@@ -5,570 +5,44 @@ let signer;
 let contract;
 let userAccount;
 
-const contractAddress = "0x9921e7B46EC46AbFcF4CE531688E79c8862604Fa";
+// Add a function to get a provider with fallbacks
+async function getReadOnlyProvider() {
+  // List of public RPC endpoints to try
+  const rpcUrls = [
+    "https://eth.llamarpc.com",
+    "https://ethereum.publicnode.com",
+    "https://rpc.ankr.com/eth",
+    "https://cloudflare-eth.com",
+  ];
 
+  // Try each RPC endpoint until one works
+  for (const url of rpcUrls) {
+    try {
+      const provider = new ethers.JsonRpcProvider(url);
+      // Test the provider with a simple call
+      await provider.getBlockNumber();
+      console.log(`Connected to ${url}`);
+      return provider;
+    } catch (e) {
+      console.error(`Failed to connect to ${url}:`, e);
+    }
+  }
+
+  // If all fail, throw an error
+  throw new Error("All RPC endpoints failed");
+}
+
+// Contract details
+const contractAddress = "0x9921e7B46EC46AbFcF4CE531688E79c8862604Fa";
 const abi = [
-  [
-    {
-      inputs: [],
-      name: "deposit",
-      outputs: [],
-      stateMutability: "payable",
-      type: "function",
-    },
-    {
-      inputs: [
-        {
-          internalType: "address",
-          name: "_priceFeed",
-          type: "address",
-        },
-        {
-          internalType: "address",
-          name: "_vrfCoordinator",
-          type: "address",
-        },
-        {
-          internalType: "bytes32",
-          name: "_keyHash",
-          type: "bytes32",
-        },
-        {
-          internalType: "uint256",
-          name: "_subscriptionId",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "nonpayable",
-      type: "constructor",
-    },
-    {
-      inputs: [
-        {
-          internalType: "address",
-          name: "have",
-          type: "address",
-        },
-        {
-          internalType: "address",
-          name: "want",
-          type: "address",
-        },
-      ],
-      name: "OnlyCoordinatorCanFulfill",
-      type: "error",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "winner",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount",
-          type: "uint256",
-        },
-      ],
-      name: "JackpotClaimed",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "depositor",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount",
-          type: "uint256",
-        },
-      ],
-      name: "NewDeposit",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "previousOwner",
-          type: "address",
-        },
-        {
-          indexed: true,
-          internalType: "address",
-          name: "newOwner",
-          type: "address",
-        },
-      ],
-      name: "OwnershipTransferred",
-      type: "event",
-    },
-    {
-      inputs: [
-        {
-          internalType: "uint256",
-          name: "requestId",
-          type: "uint256",
-        },
-        {
-          internalType: "uint256[]",
-          name: "randomWords",
-          type: "uint256[]",
-        },
-      ],
-      name: "rawFulfillRandomWords",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "renounceOwnership",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "requestDraw",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        {
-          internalType: "address",
-          name: "newOwner",
-          type: "address",
-        },
-      ],
-      name: "transferOwnership",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "winner",
-          type: "address",
-        },
-      ],
-      name: "WinnerSelected",
-      type: "event",
-    },
-    {
-      inputs: [],
-      name: "withdrawFees",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "withdrawIfWinner",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      stateMutability: "payable",
-      type: "receive",
-    },
-    {
-      inputs: [],
-      name: "callbackGasLimit",
-      outputs: [
-        {
-          internalType: "uint32",
-          name: "",
-          type: "uint32",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "canDraw",
-      outputs: [
-        {
-          internalType: "bool",
-          name: "",
-          type: "bool",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "collectedFees",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      name: "entries",
-      outputs: [
-        {
-          internalType: "address",
-          name: "user",
-          type: "address",
-        },
-        {
-          internalType: "uint96",
-          name: "cumulativeWeight",
-          type: "uint96",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "FEE_PERCENT",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "getEntriesCount",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        {
-          internalType: "uint256",
-          name: "index",
-          type: "uint256",
-        },
-      ],
-      name: "getEntry",
-      outputs: [
-        {
-          internalType: "address",
-          name: "user",
-          type: "address",
-        },
-        {
-          internalType: "uint256",
-          name: "cumulative",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "getJackpotUsd",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        {
-          internalType: "uint256",
-          name: "count",
-          type: "uint256",
-        },
-      ],
-      name: "getTopDepositors",
-      outputs: [
-        {
-          internalType: "address[]",
-          name: "",
-          type: "address[]",
-        },
-        {
-          internalType: "uint256[]",
-          name: "",
-          type: "uint256[]",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "getVerifiedPrice",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "holdStartTimestamp",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "keyHash",
-      outputs: [
-        {
-          internalType: "bytes32",
-          name: "",
-          type: "bytes32",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "last24hDepositUsd",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "last24hWindowStart",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "lastRequestId",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "MIN_24H_USD",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "owner",
-      outputs: [
-        {
-          internalType: "address",
-          name: "",
-          type: "address",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "priceFeed",
-      outputs: [
-        {
-          internalType: "contract AggregatorV2V3Interface",
-          name: "",
-          type: "address",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "requestConfirmations",
-      outputs: [
-        {
-          internalType: "uint16",
-          name: "",
-          type: "uint16",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "STALE_PRICE_THRESHOLD",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "subscriptionId",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "TARGET_USD",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "totalPool",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        {
-          internalType: "address",
-          name: "",
-          type: "address",
-        },
-      ],
-      name: "userDeposits",
-      outputs: [
-        {
-          internalType: "uint256",
-          name: "",
-          type: "uint256",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "vrfCoordinator",
-      outputs: [
-        {
-          internalType: "contract VRFCoordinatorV2Interface",
-          name: "",
-          type: "address",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "winner",
-      outputs: [
-        {
-          internalType: "address",
-          name: "",
-          type: "address",
-        },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-  ],
+  // Include only the functions we need for read-only operations
+  "function totalPool() view returns (uint256)",
+  "function getJackpotUsd() view returns (uint256)",
+  "function TARGET_USD() view returns (uint256)",
+  "function last24hDepositUsd() view returns (uint256)",
+  "function getEntriesCount() view returns (uint256)",
+  "function getEntry(uint256 index) view returns (address user, uint256 cumulative)",
+  "function userDeposits(address user) view returns (uint256)",
 ];
 
 export async function initWeb3() {
@@ -1088,63 +562,43 @@ export async function checkIfConnected() {
   }
 }
 
-// Add a function to get a provider with fallbacks
-async function getReadOnlyProvider() {
-  // List of public RPC endpoints to try
-  const rpcUrls = [
-    "https://eth.llamarpc.com",
-    "https://ethereum.publicnode.com",
-    "https://rpc.ankr.com/eth",
-    "https://cloudflare-eth.com",
-  ];
-
-  // Try each RPC endpoint until one works
-  for (const url of rpcUrls) {
-    try {
-      const provider = new ethers.JsonRpcProvider(url);
-      // Test the provider with a simple call
-      await provider.getBlockNumber();
-      console.log(`Connected to ${url}`);
-      return provider;
-    } catch (e) {
-      console.error(`Failed to connect to ${url}:`, e);
-    }
-  }
-
-  // If all fail, throw an error
-  throw new Error("All RPC endpoints failed");
-}
-
-// Update loadJackpotInfo to use public APIs
+// Update loadJackpotInfo to use direct RPC calls
 export async function loadJackpotInfo() {
+  let provider;
+  let contract;
+
   try {
-    // Get ETH price
-    const ethPrice = await getEthPrice();
+    // Get a working provider
+    provider = await getReadOnlyProvider();
+
+    // Create contract instance
+    contract = new ethers.Contract(contractAddress, abi, provider);
 
     // Get contract data
-    const totalPool = await readContractData("totalPool");
+    const totalPool = await contract.totalPool();
     const totalPoolEth = ethers.formatEther(totalPool);
-    const jackpotUsd = (parseFloat(totalPoolEth) * ethPrice).toFixed(2);
 
-    const targetUsd = await readContractData("TARGET_USD");
+    const jackpotUsd = await contract.getJackpotUsd();
+    const jackpotUsdFormatted = (Number(jackpotUsd) / 1e8).toFixed(2);
+
+    const targetUsd = await contract.TARGET_USD();
     const targetUsdFormatted = (Number(targetUsd) / 1e8).toFixed(2);
 
-    const last24hUsd = await readContractData("last24hDepositUsd");
+    const last24hUsd = await contract.last24hDepositUsd();
     const last24hUsdFormatted = (Number(last24hUsd) / 1e8).toFixed(2);
 
     // Calculate percentage
-    const percentComplete =
-      (parseFloat(jackpotUsd) * 100) / parseFloat(targetUsdFormatted);
+    const percentComplete = (Number(jackpotUsd) * 100) / Number(targetUsd);
 
     // Update UI
     document.getElementById(
       "jackpot"
-    ).innerHTML = `<strong>${totalPoolEth} ETH</strong> ($${jackpotUsd})`;
+    ).innerHTML = `<strong>${totalPoolEth} ETH</strong> ($${jackpotUsdFormatted})`;
 
     document.getElementById("usd24h").innerText = `$${last24hUsdFormatted}`;
 
     document.getElementById("progressFill").style.width = `${Math.min(
-      percentComplete,
+      Number(percentComplete),
       100
     )}%`;
 
@@ -1152,71 +606,110 @@ export async function loadJackpotInfo() {
     updateStatusMessageFromPercent(percentComplete);
 
     // Get entries count
-    const entriesCount = await readContractData("getEntriesCount");
+    const entriesCount = await contract.getEntriesCount();
 
     // Load top depositors (limited to 5 to reduce API calls)
     const topDepositors = [];
-    const maxEntries = Math.min(parseInt(entriesCount), 20);
+    const maxEntries = Math.min(Number(entriesCount), 20);
+
+    // Create a map to track unique depositors and their amounts
+    const depositorMap = new Map();
 
     for (let i = 0; i < maxEntries; i++) {
       try {
-        const entry = await readContractData("getEntry", [i]);
-        const [address, weight] = entry.split(",");
+        const entry = await contract.getEntry(i);
+        const address = entry[0]; // First element is the address
 
-        // Get user deposit
-        const deposit = await readContractData("userDeposits", [address]);
-        const depositEth = ethers.formatEther(deposit);
-
-        // Add to our list
-        topDepositors.push({ address, amount: depositEth });
+        // Only query deposit if we haven't seen this address yet
+        if (!depositorMap.has(address)) {
+          const deposit = await contract.userDeposits(address);
+          depositorMap.set(address, deposit);
+        }
       } catch (e) {
         console.error(`Error fetching entry ${i}:`, e);
       }
     }
 
-    // Sort and take top 5
+    // Convert map to array, sort, and take top 5
+    Array.from(depositorMap.entries()).forEach(([address, amount]) => {
+      topDepositors.push({
+        address,
+        amount: ethers.formatEther(amount),
+      });
+    });
+
     topDepositors.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
     const top5 = topDepositors.slice(0, 5);
 
     // Update leaderboard
     updateLeaderboardFromData(top5);
+
+    // Store the data in localStorage as a cache
+    localStorage.setItem(
+      "contractData",
+      JSON.stringify({
+        totalPoolEth,
+        jackpotUsdFormatted,
+        last24hUsdFormatted,
+        percentComplete,
+        top5,
+        timestamp: Date.now(),
+      })
+    );
   } catch (e) {
     console.error("Failed to load jackpot info:", e);
 
-    // Set fallback values
+    // Try to use cached data from localStorage if available
+    const cachedData = localStorage.getItem("contractData");
+
+    if (cachedData) {
+      try {
+        const data = JSON.parse(cachedData);
+        const cacheAge = Date.now() - data.timestamp;
+
+        // Only use cache if it's less than 10 minutes old
+        if (cacheAge < 10 * 60 * 1000) {
+          console.log("Using cached data from", new Date(data.timestamp));
+
+          document.getElementById(
+            "jackpot"
+          ).innerHTML = `<strong>${data.totalPoolEth} ETH</strong> ($${data.jackpotUsdFormatted})`;
+
+          document.getElementById(
+            "usd24h"
+          ).innerText = `$${data.last24hUsdFormatted}`;
+
+          document.getElementById("progressFill").style.width = `${Math.min(
+            Number(data.percentComplete),
+            100
+          )}%`;
+
+          updateStatusMessageFromPercent(data.percentComplete);
+          updateLeaderboardFromData(data.top5);
+
+          // Add a note that data is cached
+          document.getElementById(
+            "status"
+          ).innerHTML += `<p><small>(Data from ${Math.round(
+            cacheAge / 60000
+          )} min ago)</small></p>`;
+
+          return;
+        }
+      } catch (cacheError) {
+        console.error("Error parsing cached data:", cacheError);
+      }
+    }
+
+    // If we get here, we couldn't load live data or use cache
     document.getElementById("jackpot").innerHTML =
-      "<strong>123.456 ETH</strong> ($456,789.12)";
-    document.getElementById("usd24h").innerText = "$12,345.67";
-    document.getElementById("progressFill").style.width = "20.76%";
-
-    // Set fallback leaderboard
-    const fallbackDepositors = [
-      {
-        address: "0x1234567890abcdef1234567890abcdef12345678",
-        amount: "45.678",
-      },
-      {
-        address: "0xabcdef1234567890abcdef1234567890abcdef12",
-        amount: "23.456",
-      },
-      {
-        address: "0x7890abcdef1234567890abcdef1234567890abcd",
-        amount: "12.345",
-      },
-      {
-        address: "0xdef1234567890abcdef1234567890abcdef12345",
-        amount: "7.890",
-      },
-      {
-        address: "0x567890abcdef1234567890abcdef1234567890ab",
-        amount: "3.456",
-      },
-    ];
-    updateLeaderboardFromData(fallbackDepositors);
-
-    // Set fallback status message
-    document.getElementById("status").innerText =
-      "The pot is growing! Don't miss out! 🚀";
+      "<strong>Error loading data</strong>";
+    document.getElementById("usd24h").innerText = "Error loading data";
+    document.getElementById("progressFill").style.width = "0%";
+    document.getElementById("leaderboard").innerHTML =
+      "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Error loading data</div>";
+    document.getElementById("status").innerHTML =
+      "<p>Unable to load contract data. Please refresh or try again later.</p>";
   }
 }
 
