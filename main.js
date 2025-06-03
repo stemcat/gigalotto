@@ -37,33 +37,40 @@ window.shareOnTwitter = function () {
   document.getElementById("shareModal").close();
 };
 
-// Terms functions
+// Terms functions - these need to be global
 window.acceptTerms = function () {
+  console.log("Terms accepted");
   localStorage.setItem("termsAccepted", "true");
   document.getElementById("termsModal").close();
   initWeb3();
 };
 
 window.declineTerms = function () {
+  console.log("Terms declined");
   document.getElementById("termsModal").close();
   document.getElementById("status").innerText =
     "⚠️ You must accept the terms to continue";
 };
 
 window.showTermsModal = function () {
+  console.log("Showing terms modal");
   document.getElementById("termsModal").showModal();
 };
 
 // Initialize on page load
 window.addEventListener("load", async () => {
+  console.log("Page loaded, initializing...");
+
   // Load basic jackpot info for all users using the public API approach
   setupAutoRefresh();
+  console.log("Auto refresh setup complete");
 
   // Only try to check connection if MetaMask is available
   if (window.ethereum) {
+    console.log("MetaMask detected, checking connection...");
     await checkIfConnected();
   } else {
-    // Update UI to show MetaMask is required for participation
+    console.log("MetaMask not detected");
     document.getElementById("status").innerText =
       "⚠️ Please install MetaMask to participate";
   }

@@ -263,6 +263,7 @@ function triggerConfetti() {
 
 // Show terms modal
 function showTermsModal() {
+  console.log("showTermsModal function called");
   return new Promise((resolve) => {
     const modal = document.getElementById("termsModal");
     if (!modal) {
@@ -271,16 +272,19 @@ function showTermsModal() {
       return;
     }
     
+    console.log("Opening terms modal");
     modal.showModal();
     
     // Set up accept/decline handlers
     window.acceptTerms = () => {
+      console.log("Terms accepted from modal");
       localStorage.setItem("termsAccepted", "true");
       modal.close();
       resolve(true);
     };
     
     window.declineTerms = () => {
+      console.log("Terms declined from modal");
       modal.close();
       resolve(false);
     };
