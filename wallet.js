@@ -633,7 +633,7 @@ export async function connectAndDeposit() {
   const ethAmount = document.getElementById("ethAmount").value;
   if (!ethAmount || parseFloat(ethAmount) < 0.001) {
     document.getElementById("status").innerText =
-      "⚠️ Minimum deposit is 0.001 ETH.";
+      "⚠️ Enter a valid ETH amount. (min: 0.001)";
     return;
   }
 
@@ -1046,15 +1046,31 @@ async function loadLeaderboard(contract) {
     const leaderboardContainer = document.getElementById("leaderboard");
     if (!leaderboardContainer) return;
 
-    // Get top 5 depositors
-    const [depositors, amounts] = await contract.getTopDepositors(5);
+    // Get top depositors (requesting more to account for duplicates)
+    const [depositors, amounts] = await contract.getTopDepositors(10);
+
+    // Filter to unique addresses
+    const uniqueDepositors = [];
+    const uniqueAmounts = [];
+    const seen = new Set();
+
+    for (let i = 0; i < depositors.length; i++) {
+      if (!seen.has(depositors[i])) {
+        seen.add(depositors[i]);
+        uniqueDepositors.push(depositors[i]);
+        uniqueAmounts.push(amounts[i]);
+
+        // Stop after we have 5 unique depositors
+        if (uniqueDepositors.length >= 5) break;
+      }
+    }
 
     let html = `<h3>🏆 TOP DEPOSITORS</h3>`;
-    for (let i = 0; i < depositors.length; i++) {
-      const display = `${depositors[i].slice(0, 6)}...${depositors[i].slice(
-        -4
-      )}`;
-      const amount = ethers.formatEther(amounts[i]);
+    for (let i = 0; i < uniqueDepositors.length; i++) {
+      const display = `${uniqueDepositors[i].slice(0, 6)}...${uniqueDepositors[
+        i
+      ].slice(-4)}`;
+      const amount = ethers.formatEther(uniqueAmounts[i]);
 
       html += `
         <div class="leaderboard-entry">

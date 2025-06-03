@@ -44,7 +44,7 @@ window.addEventListener("load", async () => {
       } else if (getUserAccount()) {
         // If we're connected but no amount entered, prompt for amount
         document.getElementById("status").innerText =
-          "⚠️ Enter a valid ETH amount.";
+          "⚠️ Enter a valid ETH amount. (min: 0.001)";
       }
     } catch (e) {
       console.error("Connection/deposit error:", e);
