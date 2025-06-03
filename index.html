@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GIGA LOTTO: $2.2B Challenge</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪙</text></svg>"
+    />
+    <style>
+      @font-face {
+        font-family: "ArcadeClassic";
+        src: url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+      }
+
+      body {
+        background: repeating-linear-gradient(
+          45deg,
+          #0f0529 0px,
+          #0f0529 20px,
+          #1a0c3a 20px,
+          #1a0c3a 40px
+        );
+        font-family: "ArcadeClassic", "Press Start 2P", cursive;
+        color: #e0e0ff;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        position: relative;
+      }
+
+      .crt-effect {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, 0.15),
+          rgba(0, 0, 0, 0.15) 1px,
+          transparent 1px,
+          transparent 2px
+        );
+        pointer-events: none;
+        z-index: 9999;
+        mix-blend-mode: overlay;
+      }
+
+      header {
+        background: linear-gradient(#00f, #88f);
+        padding: 20px;
+        color: white;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+        position: relative;
+        z-index: 10;
+      }
+
+      .header-glow {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(
+          circle,
+          rgba(255, 255, 255, 0.6) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 20px auto;
+        background: #0a0822;
+        border: 5px double #ff00ff;
+        padding: 20px;
+        box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+        position: relative;
+        overflow: hidden;
+        z-index: 10;
+      }
+
+      .container::before {
+        content: "";
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+        border: 2px solid #ff0;
+        border-radius: 5px;
+        z-index: -1;
+        animation: pulse 3s infinite;
+      }
+
+      h1 {
+        font-size: 1.5em;
+        color: #ffff00;
+        text-shadow: 0 0 10px #ff00ff;
+      }
+
+      .jackpot-display {
+        background: #1a1744;
+        border: 2px dashed #00ffff;
+        padding: 15px;
+        margin-top: 20px;
+        font-size: 1.2em;
+        position: relative;
+        transition: all 0.3s;
+      }
+
+      .progress-bar {
+        background: #333;
+        border: 2px inset #666;
+        height: 25px;
+        position: relative;
+        margin: 10px auto;
+        width: 100%;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: repeating-linear-gradient(
+          45deg,
+          #0f0,
+          #0f0 10px,
+          #afa 10px,
+          #afa 20px
+        );
+        width: 0%;
+        transition: width 0.5s ease;
+      }
+
+      .wallet {
+        background: #151240;
+        border: 2px solid #00c;
+        padding: 10px;
+        margin-top: 20px;
+      }
+
+      .user-dashboard {
+        background: #1a1a4a;
+        padding: 10px;
+        margin-top: 20px;
+        border: 2px solid #009;
+      }
+
+      .leaderboard-container {
+        background: #1a1a4a;
+        padding: 15px;
+        margin: 20px 0;
+        border: 2px solid #ff00ff;
+      }
+
+      .leaderboard-entry {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px;
+        border-bottom: 1px dashed #555;
+        font-size: 0.8em;
+      }
+
+      .actions {
+        margin: 20px 0;
+      }
+
+      button {
+        background: linear-gradient(#00a, #007);
+        color: #fff;
+        font-size: 0.9em;
+        border: 2px solid #ff0;
+        padding: 10px 20px;
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        margin: 5px;
+        font-family: "Press Start 2P", cursive;
+        transition: all 0.2s;
+      }
+
+      button:hover {
+        background: linear-gradient(#00f, #00a);
+        transform: translateY(-2px);
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+      }
+
+      button:active {
+        transform: translateY(1px);
+        box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+      }
+
+      #withdrawBtn {
+        background: linear-gradient(#0f0, #080);
+      }
+
+      #requestDrawBtn {
+        background: linear-gradient(#f90, #f60);
+      }
+
+      footer {
+        font-size: 0.6em;
+        margin: 30px auto;
+        color: #aaa;
+      }
+
+      #status {
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px;
+        margin: 20px 0;
+        border: 2px solid #ff0;
+        font-size: 0.9em;
+      }
+
+      input {
+        padding: 10px;
+        font-family: "Press Start 2P", cursive;
+        border: 2px inset #999;
+        margin: 10px;
+        width: 200px;
+        background: #222;
+        color: #ff0;
+      }
+
+      .winner-banner {
+        background: linear-gradient(90deg, #ff0, #f90, #ff0);
+        padding: 10px;
+        margin: 10px 0;
+        border: 3px solid #f90;
+        animation: shine 2s infinite;
+        color: #000;
+      }
+
+      .coin-burst {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 3rem;
+        z-index: 1000;
+        animation: coinBurst 1.2s ease-out forwards;
+        pointer-events: none;
+        text-shadow: 0 0 10px gold;
+      }
+
+      @keyframes coinBurst {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(0.5);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -150%) scale(1.2);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -250%) scale(1.5);
+        }
+      }
+
+      @keyframes confettiFall {
+        0% {
+          transform: translateY(0) rotate(0deg);
+        }
+        100% {
+          transform: translateY(100vh) rotate(360deg);
+        }
+      }
+
+      @keyframes shine {
+        0% {
+          box-shadow: 0 0 5px #ff0;
+        }
+        50% {
+          box-shadow: 0 0 20px #ff0;
+        }
+        100% {
+          box-shadow: 0 0 5px #ff0;
+        }
+      }
+
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 20px rgba(255, 255, 0, 0.8);
+        }
+        100% {
+          box-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
+        }
+      }
+
+      .hot-flame {
+        animation: flicker 1s infinite alternate;
+        box-shadow: 0 0 30px red, 0 0 50px orange inset;
+      }
+
+      @keyframes flicker {
+        0% {
+          box-shadow: 0 0 30px red, 0 0 40px orange inset;
+        }
+        100% {
+          box-shadow: 0 0 40px red, 0 0 60px yellow inset;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="crt-effect"></div>
+
+    <header>
+      <div class="header-glow"></div>
+      <h1>🤑 GIGA LOTTO - $2.2B CHALLENGE 🤑</h1>
+      <p>The lottery that only draws when crypto makes history</p>
+    </header>
+
+    <div class="container">
+      <div class="jackpot-display">
+        <strong>💰 Jackpot Pool:</strong> <span id="jackpot">Loading...</span
+        ><br />
+        <div id="holdTimerSection" style="display: none">
+          <strong>📈 Holding Above Target For:</strong>
+          <span id="holdTimer">--:--:--</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div class="jackpot-display">
+        <strong>🔥 USD Deposited Last 24h:</strong>
+        <span id="usd24h">Loading...</span> USD
+      </div>
+
+      <div class="leaderboard-container">
+        <div id="leaderboard"></div>
+      </div>
+
+      <div class="wallet">
+        <p><strong>🎟️ Enter the Pot</strong></p>
+        <input
+          type="number"
+          id="ethAmount"
+          placeholder="Amount in ETH"
+          min="0.001"
+          step="0.001"
+        />
+        <button id="connectBtn">🔌 Connect Wallet</button>
+      </div>
+
+      <div class="user-dashboard" id="userDashboard" style="display: none">
+        <p><strong>Connected:</strong> <span id="userAddress"></span></p>
+        <p>
+          <strong>Your Total Deposits:</strong>
+          <span id="userDeposit">0</span> ETH
+        </p>
+      </div>
+
+      <button
+        onclick="document.getElementById('shareModal').showModal()"
+        style="margin-top: 20px"
+      >
+        📢 Share GIGA LOTTO
+      </button>
+
+      <div class="actions">
+        <button id="withdrawBtn" style="display: none">
+          Withdraw Winnings
+        </button>
+        <button id="requestDrawBtn" style="display: none">Request Draw</button>
+      </div>
+
+      <div id="status">Not connected</div>
+    </div>
+
+    <footer>
+      <p>
+        Contract verified | Non-custodial | Transparent rules | Community driven
+      </p>
+      <p>&copy; 2025 GIGA LOTTO Project</p>
+    </footer>
+
+    <script type="module" src="main.js"></script>
+
+    <dialog
+      id="shareModal"
+      style="
+        background: #1a0c3a;
+        color: #fff;
+        padding: 20px;
+        border: 4px solid #ff00ff;
+        font-family: 'Press Start 2P';
+        max-width: 400px;
+        z-index: 10000;
+      "
+    >
+      <p>I just joined the $2.2B #GigaLotto on-chain lottery! 🤑</p>
+      <p>
+        <a
+          href="https://gigalotto.vercel.app"
+          target="_blank"
+          style="color: #ff0"
+          >Join the challenge!</a
+        >
+      </p>
+      <button onclick="shareOnTwitter()">🐦 Share on Twitter</button>
+      <button
+        onclick="document.getElementById('shareModal').close()"
+        style="background: #f00; margin-top: 10px"
+      >
+        ❌ Close
+      </button>
+    </dialog>
+  </body>
+</html>
