@@ -65,6 +65,9 @@ window.addEventListener("load", async () => {
   setupAutoRefresh();
   console.log("Auto refresh setup complete");
 
+  // Set up account change listeners
+  setupAccountChangeListeners();
+
   // Only try to check connection if MetaMask is available
   if (window.ethereum) {
     console.log("MetaMask detected, checking connection...");

@@ -558,3 +558,41 @@ function filterEntriesByTimeframe(entries, timeframe) {
       return entries;
   }
 }
+
+// Add this function to handle wallet disconnection
+export async function disconnectWallet() {
+  userAccount = null;
+
+  // Reset UI elements
+  document.getElementById("connectBtn").innerText = "🦊 Connect Wallet";
+  document.getElementById("userDashboard").style.display = "none";
+  document.getElementById("status").innerText = "Wallet disconnected";
+
+  // Clear any user-specific data
+  document.getElementById("userAddress").innerText = "";
+  document.getElementById("userDeposit").innerText = "0";
+  document.getElementById("winChance").innerText = "0%";
+
+  // Clear localStorage to prevent using old cached data
+  localStorage.removeItem("contractData");
+}
+
+// Add event listener for account changes
+export function setupAccountChangeListeners() {
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", (accounts) => {
+      if (accounts.length === 0) {
+        // User disconnected their wallet
+        disconnectWallet();
+      } else {
+        // User switched accounts, reinitialize
+        initWeb3();
+      }
+    });
+
+    window.ethereum.on("chainChanged", () => {
+      // Chain changed, reload the page
+      window.location.reload();
+    });
+  }
+}

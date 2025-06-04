@@ -18,6 +18,21 @@ const SUBGRAPH_URL =
 
 // Load jackpot info with optimized approach
 export async function loadJackpotInfo() {
+  // Check if cached data is for the current contract
+  const cachedData = localStorage.getItem("contractData");
+  if (cachedData) {
+    try {
+      const data = JSON.parse(cachedData);
+      if (data.contractAddress && data.contractAddress !== contractAddress) {
+        // Contract address changed, clear cache
+        console.log("Contract address changed, clearing cache");
+        localStorage.removeItem("contractData");
+      }
+    } catch (e) {
+      console.error("Error parsing cached data:", e);
+    }
+  }
+
   // Show loading state but keep existing data
   const jackpotEl = document.getElementById("jackpot");
   const usd24hEl = document.getElementById("usd24h");
@@ -42,6 +57,12 @@ export async function loadJackpotInfo() {
             amount
             blockTimestamp
           }
+          contract(id: "${contractAddress.toLowerCase()}") {
+            totalPool
+            jackpotUsd
+            targetUsd
+            last24hDepositUsd
+          }
         }`,
       }),
     });
@@ -52,16 +73,47 @@ export async function loadJackpotInfo() {
       const data = await response.json();
       console.log("Subgraph data received:", data);
 
-      if (data.data && data.data.newDeposits) {
+      // First check if we have contract data
+      if (data.data && data.data.contract) {
+        const contractData = data.data.contract;
+
+        // Convert values to ETH and format
+        const totalPoolEth = ethers.formatEther(contractData.totalPool);
+        const jackpotUsdFormatted = (
+          Number(contractData.jackpotUsd) / 1e8
+        ).toFixed(2);
+        const targetUsdFormatted = (
+          Number(contractData.targetUsd) / 1e8
+        ).toFixed(2);
+        const last24hUsdFormatted = (
+          Number(contractData.last24hDepositUsd) / 1e8
+        ).toFixed(2);
+        const percentComplete =
+          (Number(contractData.jackpotUsd) * 100) /
+          Number(contractData.targetUsd);
+
+        // Update UI with contract data
+        updateUIWithBasicData(
+          totalPoolEth,
+          jackpotUsdFormatted,
+          last24hUsdFormatted,
+          percentComplete
+        );
+      }
+
+      // Process deposits for leaderboard if available
+      if (
+        data.data &&
+        data.data.newDeposits &&
+        data.data.newDeposits.length > 0
+      ) {
         console.log("Deposits found:", data.data.newDeposits.length);
 
-        // Process deposits to get total pool and other metrics
-        let totalPool = BigInt(0);
+        // Process deposits to get top depositors
         let topDepositors = {};
 
         for (const deposit of data.data.newDeposits) {
           const amount = BigInt(deposit.amount);
-          totalPool += amount;
 
           // Track deposits by user for leaderboard
           const depositor = deposit.depositor.toLowerCase();
@@ -71,38 +123,17 @@ export async function loadJackpotInfo() {
           topDepositors[depositor] += amount;
         }
 
-        // Convert to ETH and format
-        const totalPoolEth = ethers.formatEther(totalPool.toString());
-
-        // Estimate USD values (this is simplified)
-        // In a real implementation, you'd get the ETH price from an oracle
-        const ethPriceUsd = 2000; // Placeholder price
-        const jackpotUsdFormatted = (
-          Number(totalPoolEth) * ethPriceUsd
-        ).toFixed(2);
-        const targetUsdFormatted = "2,200,000.00"; // Your target from contract
-        const percentComplete =
-          (Number(jackpotUsdFormatted.replace(/,/g, "")) * 100) / 2200000;
-
-        // Update UI with basic data
-        updateUIWithBasicData(
-          totalPoolEth,
-          jackpotUsdFormatted,
-          "0.00", // Placeholder for last24h
-          percentComplete
-        );
-
         // Convert topDepositors to array for leaderboard
         const leaderboardData = Object.entries(topDepositors).map(
           ([address, amount]) => ({
-            user: address,
-            amount: amount.toString(),
+            address: address,
+            amount: ethers.formatEther(amount.toString()),
           })
         );
 
         // Sort by amount descending
-        leaderboardData.sort((a, b) =>
-          BigInt(b.amount) > BigInt(a.amount) ? 1 : -1
+        leaderboardData.sort(
+          (a, b) => parseFloat(b.amount) - parseFloat(a.amount)
         );
 
         // Update leaderboard
@@ -110,27 +141,33 @@ export async function loadJackpotInfo() {
 
         // Cache the data
         const basicData = {
-          totalPoolEth,
-          jackpotUsdFormatted,
-          targetUsdFormatted,
-          last24hUsdFormatted: "0.00", // Placeholder
-          percentComplete,
-          topDepositors: leaderboardData.slice(0, 10).map((entry) => ({
-            address: entry.user,
-            amount: ethers.formatEther(entry.amount),
-          })),
+          totalPoolEth: totalPoolEth || "0",
+          jackpotUsdFormatted: jackpotUsdFormatted || "0.00",
+          targetUsdFormatted: targetUsdFormatted || "2,200,000.00",
+          last24hUsdFormatted: last24hUsdFormatted || "0.00",
+          percentComplete: percentComplete || 0,
+          topDepositors: leaderboardData.slice(0, 10),
           timestamp: Date.now(),
         };
 
         localStorage.setItem("contractData", JSON.stringify(basicData));
 
+        // Hide any error messages
+        showDataError(false);
         return; // Exit early if API works
+      } else {
+        console.log("No deposits found in subgraph data");
+        showDataError(true, "No deposits found. The subgraph may be syncing.");
       }
     }
   } catch (apiError) {
     console.error(
       "Subgraph API fetch failed, falling back to direct contract calls:",
       apiError
+    );
+    showDataError(
+      true,
+      "Failed to fetch data from subgraph. Trying direct contract calls."
     );
   }
 
@@ -374,4 +411,13 @@ function showDataError(show, message = null) {
   } else {
     errorElement.style.display = "none";
   }
+}
+
+// Add this function to clear cached data
+export function clearCache() {
+  localStorage.removeItem("contractData");
+  console.log("Cache cleared");
+
+  // Reload data
+  loadJackpotInfo();
 }
