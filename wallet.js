@@ -1,7 +1,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details
-const contractAddress = "0x9921e7B46EC46AbFcF4CE531688E79c8862604Fa";
+const contractAddress = "0x8366A6F4adbB6D2D9fDC4cD5B9b0aC5f12D96dF1";
 const abi = [
   // Include only the functions we need for wallet operations
   "function totalPool() view returns (uint256)",

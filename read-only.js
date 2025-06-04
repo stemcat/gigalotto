@@ -1,7 +1,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details
-const contractAddress = "0x9921e7B46EC46AbFcF4CE531688E79c8862604Fa";
+const contractAddress = "0x8366A6F4adbB6D2D9fDC4cD5B9b0aC5f12D96dF1";
 const abi = [
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
@@ -48,6 +48,10 @@ export async function getReadOnlyProvider() {
   throw new Error("All Sepolia RPC endpoints failed");
 }
 
+// Update the subgraph endpoint with your actual deployed subgraph URL
+const SUBGRAPH_URL =
+  "https://api.studio.thegraph.com/query/113076/gigalottosepolia/version/latest";
+
 // Load jackpot info with optimized approach
 export async function loadJackpotInfo() {
   // Show loading state but keep existing data
@@ -63,13 +67,11 @@ export async function loadJackpotInfo() {
 
   // Try to load from API first (fastest)
   try {
-    const response = await fetch(
-      `https://api.thegraph.com/subgraphs/name/yourusername/gigalotto-sepolia`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `{
+    const response = await fetch(SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{
           contract(id: "${contractAddress.toLowerCase()}") {
             totalPool
             jackpotUsd
@@ -81,9 +83,8 @@ export async function loadJackpotInfo() {
             }
           }
         }`,
-        }),
-      }
-    );
+      }),
+    });
 
     if (response.ok) {
       const data = await response.json();
@@ -99,7 +100,7 @@ export async function loadJackpotInfo() {
     );
   }
 
-  // Fallback to direct contract calls with multicall for efficiency
+  // Fallback to direct contract calls if subgraph fails
   try {
     // Use cached data while loading
     const cachedData = localStorage.getItem("contractData");
