@@ -12,42 +12,6 @@ const abi = [
   "function userDeposits(address user) view returns (uint256)",
 ];
 
-// Get a fast Sepolia provider
-export async function getReadOnlyProvider() {
-  // Try Ankr's dedicated Sepolia endpoint first (fastest option)
-  try {
-    const ankrProvider = new ethers.JsonRpcProvider(
-      "https://rpc.ankr.com/eth_sepolia"
-    );
-    await ankrProvider.getBlockNumber();
-    console.log("Connected to Ankr Sepolia endpoint");
-    return ankrProvider;
-  } catch (e) {
-    console.error("Failed to connect to Ankr Sepolia:", e);
-  }
-
-  // Fallback to other providers
-  const rpcUrls = [
-    "https://eth-sepolia.g.alchemy.com/v2/demo", // Alchemy's public endpoint
-    "https://rpc.sepolia.org",
-    "https://eth-sepolia.public.blastapi.io",
-    "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura key
-  ];
-
-  for (const url of rpcUrls) {
-    try {
-      const provider = new ethers.JsonRpcProvider(url);
-      await provider.getBlockNumber();
-      console.log(`Connected to Sepolia via ${url}`);
-      return provider;
-    } catch (e) {
-      console.error(`Failed to connect to ${url}:`, e);
-    }
-  }
-
-  throw new Error("All Sepolia RPC endpoints failed");
-}
-
 // Update the subgraph endpoint with your actual deployed subgraph URL
 const SUBGRAPH_URL =
   "https://api.studio.thegraph.com/query/113076/gigalottosepolia/version/latest";
@@ -78,10 +42,11 @@ export async function loadJackpotInfo() {
             jackpotUsd
             targetUsd
             last24hDepositUsd
-            entries(first: 20, orderBy: amount, orderDirection: desc) {
-              user
-              amount
-            }
+          }
+          entries(first: 20, orderBy: amount, orderDirection: desc) {
+            user
+            amount
+            timestamp
           }
         }`,
       }),
@@ -94,45 +59,122 @@ export async function loadJackpotInfo() {
       console.log("Subgraph data received:", data);
 
       if (data.data && data.data.contract) {
-        console.log("Contract data found, updating UI");
-        updateUIFromGraphData(data.data.contract);
+        console.log("Contract data found:", data.data.contract);
+
+        // Format values
+        const totalPoolEth = ethers.formatEther(data.data.contract.totalPool);
+        const jackpotUsdFormatted = (
+          Number(data.data.contract.jackpotUsd) / 1e8
+        ).toFixed(2);
+        const targetUsdFormatted = (
+          Number(data.data.contract.targetUsd) / 1e8
+        ).toFixed(2);
+        const last24hUsdFormatted = (
+          Number(data.data.contract.last24hDepositUsd) / 1e8
+        ).toFixed(2);
+        const percentComplete =
+          (Number(data.data.contract.jackpotUsd) * 100) /
+          Number(data.data.contract.targetUsd);
+
+        // Update UI with basic data
+        updateUIWithBasicData(
+          totalPoolEth,
+          jackpotUsdFormatted,
+          last24hUsdFormatted,
+          percentComplete
+        );
+
+        // Update leaderboard if entries exist
+        if (data.data.entries && data.data.entries.length > 0) {
+          console.log("Entries found:", data.data.entries.length);
+          const topDepositors = data.data.entries.map((entry) => ({
+            address: entry.user,
+            amount: ethers.formatEther(entry.amount),
+          }));
+          updateLeaderboardFromData(topDepositors);
+        } else {
+          console.log("No entries found in subgraph data");
+          document.getElementById("leaderboard").innerHTML =
+            "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>No deposits yet</div>";
+        }
+
+        // Cache the data
+        const basicData = {
+          totalPoolEth,
+          jackpotUsdFormatted,
+          targetUsdFormatted,
+          last24hUsdFormatted,
+          percentComplete,
+          topDepositors:
+            data.data.entries?.map((entry) => ({
+              address: entry.user,
+              amount: ethers.formatEther(entry.amount),
+            })) || [],
+          timestamp: Date.now(),
+        };
+
+        localStorage.setItem("contractData", JSON.stringify(basicData));
+
         return; // Exit early if API works
-      } else {
-        console.error("No contract data in response:", data);
       }
-    } else {
-      console.error("Subgraph response not OK:", await response.text());
     }
   } catch (apiError) {
     console.error(
-      "API fetch failed, falling back to direct contract calls:",
+      "Subgraph API fetch failed, falling back to direct contract calls:",
       apiError
     );
   }
 
-  // Fallback to direct contract calls if subgraph fails
-  try {
-    // Use cached data while loading
-    const cachedData = localStorage.getItem("contractData");
-    if (cachedData) {
-      try {
-        const data = JSON.parse(cachedData);
-        const cacheAge = Date.now() - data.timestamp;
-        if (cacheAge < 5 * 60 * 1000) {
-          // 5 minutes
-          updateUIFromCachedData(data);
-        }
-      } catch (e) {
-        console.error("Error parsing cached data:", e);
-      }
-    }
+  // If we get here, the subgraph failed - try to use cached data
+  const cachedData = localStorage.getItem("contractData");
+  if (cachedData) {
+    try {
+      const data = JSON.parse(cachedData);
+      if (Date.now() - data.timestamp < 5 * 60 * 1000) {
+        // Cache valid for 5 minutes
+        console.log("Using cached data from", new Date(data.timestamp));
+        updateUIWithBasicData(
+          data.totalPoolEth,
+          data.jackpotUsdFormatted,
+          data.last24hUsdFormatted,
+          data.percentComplete
+        );
 
-    // Get provider and contract
-    const provider = await getReadOnlyProvider();
+        if (data.topDepositors && data.topDepositors.length > 0) {
+          updateLeaderboardFromData(data.topDepositors);
+        }
+
+        // Try to refresh in background
+        setTimeout(() => {
+          tryDirectContractCall();
+        }, 100);
+
+        return;
+      }
+    } catch (e) {
+      console.error("Error parsing cached data:", e);
+    }
+  }
+
+  // Last resort - try direct contract call
+  tryDirectContractCall();
+}
+
+// Separate function for direct contract calls as last resort
+async function tryDirectContractCall() {
+  try {
+    console.log("Attempting direct contract call as last resort");
+
+    // Use a CORS proxy for public endpoints
+    const provider = new ethers.JsonRpcProvider(
+      "https://api.allorigins.win/raw?url=" +
+        encodeURIComponent("https://rpc.sepolia.org")
+    );
+
     const contract = new ethers.Contract(contractAddress, abi, provider);
 
-    // Fetch basic data in parallel
-    console.log("Fetching contract data in parallel...");
+    // Fetch basic data
+    console.log("Fetching contract data...");
     const [totalPool, jackpotUsd, targetUsd, last24hUsd] = await Promise.all([
       contract.totalPool(),
       contract.getJackpotUsd(),
@@ -147,7 +189,7 @@ export async function loadJackpotInfo() {
     const last24hUsdFormatted = (Number(last24hUsd) / 1e8).toFixed(2);
     const percentComplete = (Number(jackpotUsd) * 100) / Number(targetUsd);
 
-    // Update UI immediately with basic data
+    // Update UI with basic data
     updateUIWithBasicData(
       totalPoolEth,
       jackpotUsdFormatted,
@@ -155,20 +197,19 @@ export async function loadJackpotInfo() {
       percentComplete
     );
 
-    // Cache basic data
+    // Store basic data
     const basicData = {
       totalPoolEth,
       jackpotUsdFormatted,
+      targetUsdFormatted,
       last24hUsdFormatted,
       percentComplete,
       timestamp: Date.now(),
     };
-    localStorage.setItem("contractData", JSON.stringify(basicData));
 
-    // Fetch top depositors in background
-    fetchTopDepositors(contract, basicData);
+    localStorage.setItem("contractData", JSON.stringify(basicData));
   } catch (e) {
-    console.error("Failed to load jackpot info:", e);
+    console.error("All data fetching methods failed:", e);
     useCachedDataIfAvailable();
   }
 }
@@ -191,224 +232,99 @@ function updateUIWithBasicData(
   updateStatusMessageFromPercent(percentComplete);
 }
 
-// Helper function to update UI from Graph API data
-function updateUIFromGraphData(data) {
-  const totalPoolEth = ethers.formatEther(data.totalPool);
-  const jackpotUsdFormatted = (Number(data.jackpotUsd) / 1e8).toFixed(2);
-  const last24hUsdFormatted = (Number(data.last24hDepositUsd) / 1e8).toFixed(2);
-  const percentComplete =
-    (Number(data.jackpotUsd) * 100) / Number(data.targetUsd);
-
-  updateUIWithBasicData(
-    totalPoolEth,
-    jackpotUsdFormatted,
-    last24hUsdFormatted,
-    percentComplete
-  );
-
-  if (data.entries && data.entries.length > 0) {
-    const topDepositors = data.entries.slice(0, 5).map((entry) => ({
-      address: entry.user,
-      amount: ethers.formatEther(entry.amount),
-    }));
-    updateLeaderboardFromData(topDepositors);
-  }
-
-  // Cache the data
-  localStorage.setItem(
-    "contractData",
-    JSON.stringify({
-      totalPoolEth,
-      jackpotUsdFormatted,
-      last24hUsdFormatted,
-      percentComplete,
-      topDepositors: data.entries?.slice(0, 5).map((entry) => ({
-        address: entry.user,
-        amount: ethers.formatEther(entry.amount),
-      })),
-      timestamp: Date.now(),
-    })
-  );
-}
-
-// Fetch top depositors in background
-async function fetchTopDepositors(contract, basicData) {
-  try {
-    document.getElementById("leaderboard").innerHTML =
-      "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Loading depositors...</div>";
-
-    const entriesCount = await contract.getEntriesCount();
-    const maxEntries = Math.min(Number(entriesCount), 20);
-    const depositorMap = new Map();
-
-    // Process in batches of 5 for better performance
-    for (let i = 0; i < maxEntries; i += 5) {
-      const batchPromises = [];
-      for (let j = i; j < Math.min(i + 5, maxEntries); j++) {
-        batchPromises.push(fetchEntryData(contract, j, depositorMap));
-      }
-      await Promise.all(batchPromises);
-    }
-
-    // Convert to array and sort
-    const topDepositors = Array.from(depositorMap.entries())
-      .map(([address, amount]) => ({
-        address,
-        amount: ethers.formatEther(amount),
-      }))
-      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
-      .slice(0, 5);
-
-    // Update leaderboard
-    updateLeaderboardFromData(topDepositors);
-
-    // Update cache with complete data
-    const completeData = {
-      ...basicData,
-      topDepositors,
-      timestamp: Date.now(),
-    };
-
-    localStorage.setItem("contractData", JSON.stringify(completeData));
-  } catch (e) {
-    console.error("Error fetching top depositors:", e);
-    document.getElementById("leaderboard").innerHTML =
-      "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Error loading depositors</div>";
-  }
-}
-
 // Use cached data if available
 function useCachedDataIfAvailable() {
   const cachedData = localStorage.getItem("contractData");
-
   if (cachedData) {
     try {
       const data = JSON.parse(cachedData);
-      const cacheAge = Date.now() - data.timestamp;
+      console.log("Using cached data from", new Date(data.timestamp));
 
-      if (cacheAge < 10 * 60 * 1000) {
-        console.log("Using cached data from", new Date(data.timestamp));
+      document.getElementById(
+        "jackpot"
+      ).innerHTML = `<strong>${data.totalPoolEth} ETH</strong> ($${data.jackpotUsdFormatted}) <small>(cached)</small>`;
+      document.getElementById(
+        "usd24h"
+      ).innerText = `$${data.last24hUsdFormatted} (cached)`;
+      document.getElementById("progressFill").style.width = `${Math.min(
+        Number(data.percentComplete),
+        100
+      )}%`;
 
-        document.getElementById(
-          "jackpot"
-        ).innerHTML = `<strong>${data.totalPoolEth} ETH</strong> ($${data.jackpotUsdFormatted})`;
-
-        document.getElementById(
-          "usd24h"
-        ).innerText = `$${data.last24hUsdFormatted}`;
-
-        document.getElementById("progressFill").style.width = `${Math.min(
-          Number(data.percentComplete),
-          100
-        )}%`;
-
-        updateStatusMessageFromPercent(data.percentComplete);
+      if (data.topDepositors && data.topDepositors.length > 0) {
         updateLeaderboardFromData(data.topDepositors);
-
-        document.getElementById(
-          "status"
-        ).innerHTML += `<p><small>(Data from ${Math.round(
-          cacheAge / 60000
-        )} min ago)</small></p>`;
-
-        return true;
       }
-    } catch (cacheError) {
-      console.error("Error parsing cached data:", cacheError);
+
+      updateStatusMessageFromPercent(data.percentComplete);
+    } catch (e) {
+      console.error("Error parsing cached data:", e);
+      document.getElementById("jackpot").innerHTML =
+        "<strong>Error loading data</strong>";
+      document.getElementById("usd24h").innerText = "Error";
     }
+  } else {
+    document.getElementById("jackpot").innerHTML =
+      "<strong>Error loading data</strong>";
+    document.getElementById("usd24h").innerText = "Error";
   }
-
-  document.getElementById("jackpot").innerHTML =
-    "<strong>Error loading data</strong>";
-  document.getElementById("usd24h").innerText = "Error loading data";
-  document.getElementById("progressFill").style.width = "0%";
-  document.getElementById("leaderboard").innerHTML =
-    "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>Error loading data</div>";
-  document.getElementById("status").innerHTML =
-    "<p>Unable to load contract data. Please refresh or try again later.</p>";
-
-  return false;
 }
 
 // Update leaderboard from data
-function updateLeaderboardFromData(depositors) {
-  const leaderboardContainer = document.getElementById("leaderboard");
-  if (!leaderboardContainer) return;
+function updateLeaderboardFromData(topDepositors) {
+  const leaderboardEl = document.getElementById("leaderboard");
+  if (!leaderboardEl) return;
 
-  let html = `<h3>🏆 TOP DEPOSITORS</h3>`;
+  let html = "<h3>🏆 TOP DEPOSITORS</h3>";
 
-  if (!depositors || depositors.length === 0) {
-    html += `<div class="leaderboard-entry">No depositors yet</div>`;
-  } else {
-    for (let i = 0; i < depositors.length; i++) {
-      const { address, amount } = depositors[i];
-      const display = `${address.slice(0, 6)}...${address.slice(-4)}`;
-
+  if (topDepositors && topDepositors.length > 0) {
+    topDepositors.forEach((depositor, index) => {
+      const shortAddress = `${depositor.address.substring(
+        0,
+        6
+      )}...${depositor.address.substring(38)}`;
       html += `
         <div class="leaderboard-entry">
-          <span class="rank">${i + 1}.</span>
-          <span class="name">${display}</span>
-          <span class="amount">${parseFloat(amount).toFixed(3)} ETH</span>
+          <span class="rank">${index + 1}</span>
+          <span class="address">${shortAddress}</span>
+          <span class="amount">${parseFloat(depositor.amount).toFixed(
+            4
+          )} ETH</span>
         </div>
       `;
-    }
-  }
-
-  leaderboardContainer.innerHTML = html;
-}
-
-// Update status message based on percent
-function updateStatusMessageFromPercent(percent) {
-  const statusElement = document.getElementById("status");
-  if (!statusElement) return;
-
-  if (percent >= 100) {
-    statusElement.innerHTML = `<p>Waiting for winner...</p>`;
-  } else if (percent < 25) {
-    statusElement.innerHTML = `<p>The jackpot is just getting started! 🚀</p>`;
-  } else if (percent < 50) {
-    statusElement.innerHTML = `<p>The pot is growing! Don't miss out! 🚀</p>`;
-  } else if (percent < 75) {
-    statusElement.innerHTML = `<p>We're more than halfway there! 🔥</p>`;
+    });
   } else {
-    statusElement.innerHTML = `<p>Almost at target! Last chance to join! ⏰</p>`;
+    html += "<div class='leaderboard-entry'>No deposits yet</div>";
+  }
+
+  leaderboardEl.innerHTML = html;
+}
+
+// Update status message based on percent complete
+function updateStatusMessageFromPercent(percentComplete) {
+  const statusEl = document.getElementById("jackpotStatus");
+  if (!statusEl) return;
+
+  if (percentComplete >= 100) {
+    statusEl.innerText = "🔥 JACKPOT READY! Waiting for cooldown period...";
+    statusEl.className = "status-ready";
+  } else if (percentComplete >= 90) {
+    statusEl.innerText =
+      "🔥 JACKPOT ALMOST READY! " + percentComplete.toFixed(1) + "% complete";
+    statusEl.className = "status-almost";
+  } else if (percentComplete >= 50) {
+    statusEl.innerText =
+      "🚀 JACKPOT GROWING! " + percentComplete.toFixed(1) + "% complete";
+    statusEl.className = "status-growing";
+  } else {
+    statusEl.innerText =
+      "🌱 JACKPOT BUILDING! " + percentComplete.toFixed(1) + "% complete";
+    statusEl.className = "status-building";
   }
 }
 
-// Helper function to fetch entry data
-async function fetchEntryData(contract, index, depositorMap) {
-  try {
-    const entry = await contract.getEntry(index);
-    const address = entry[0];
-
-    if (!depositorMap.has(address)) {
-      const deposit = await contract.userDeposits(address);
-      depositorMap.set(address, deposit);
-    }
-  } catch (e) {
-    console.error(`Error fetching entry ${index}:`, e);
-  }
-}
-
-// Helper function to update UI from cached data
-function updateUIFromCachedData(data) {
-  document.getElementById(
-    "jackpot"
-  ).innerHTML = `<strong>${data.totalPoolEth} ETH</strong> ($${data.jackpotUsdFormatted})`;
-  document.getElementById("usd24h").innerText = `$${data.last24hUsdFormatted}`;
-  document.getElementById("progressFill").style.width = `${Math.min(
-    Number(data.percentComplete),
-    100
-  )}%`;
-  updateStatusMessageFromPercent(data.percentComplete);
-
-  if (data.topDepositors) {
-    updateLeaderboardFromData(data.topDepositors);
-  }
-}
-
-// Setup auto refresh with better timing
+// Set up auto-refresh
 export function setupAutoRefresh() {
+  // Initial load
   loadJackpotInfo();
 
   // Refresh every 30 seconds
