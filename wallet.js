@@ -357,3 +357,204 @@ function showTermsModal() {
     };
   });
 }
+
+export async function checkWithdrawableAmount() {
+  if (!userAccount || !contract) return;
+
+  try {
+    const withdrawableAmount = await contract.withdrawableAmounts(userAccount);
+    const depositTimestamp = await contract.depositTimestamps(userAccount);
+    const lockPeriod = await contract.LOCK_PERIOD();
+
+    const unlockTime = Number(depositTimestamp) + Number(lockPeriod);
+    const now = Math.floor(Date.now() / 1000);
+
+    const formattedAmount = ethers.formatEther(withdrawableAmount);
+    document.getElementById("withdrawableAmount").innerText = formattedAmount;
+
+    if (Number(depositTimestamp) > 0) {
+      const unlockDate = new Date(unlockTime * 1000);
+      document.getElementById("unlockDate").innerText =
+        unlockDate.toLocaleDateString() + " " + unlockDate.toLocaleTimeString();
+
+      // Show withdraw section if funds are available and unlocked
+      if (withdrawableAmount > 0 && now >= unlockTime) {
+        document.getElementById("withdrawalSection").style.display = "block";
+
+        // Set max value for withdrawal input
+        document.getElementById("withdrawAmount").max = formattedAmount;
+        document.getElementById(
+          "withdrawAmount"
+        ).placeholder = `Amount (max: ${formattedAmount} ETH)`;
+      } else {
+        document.getElementById("withdrawalSection").style.display = "none";
+      }
+    } else {
+      document.getElementById("unlockDate").innerText = "-";
+      document.getElementById("withdrawalSection").style.display = "none";
+    }
+  } catch (e) {
+    console.error("Error checking withdrawable amount:", e);
+  }
+}
+
+export async function withdrawFunds() {
+  try {
+    const withdrawAmount = document.getElementById("withdrawAmount").value;
+
+    // Validate amount
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      document.getElementById("status").innerText =
+        "⚠️ Please enter a valid amount to withdraw";
+      return;
+    }
+
+    const maxAmount = await contract.withdrawableAmounts(userAccount);
+    const maxAmountEth = ethers.formatEther(maxAmount);
+
+    if (parseFloat(withdrawAmount) > parseFloat(maxAmountEth)) {
+      document.getElementById(
+        "status"
+      ).innerText = `⚠️ Maximum withdrawal amount is ${maxAmountEth} ETH`;
+      return;
+    }
+
+    // Calculate percentage of funds being withdrawn
+    const percentWithdrawn =
+      (parseFloat(withdrawAmount) / parseFloat(maxAmountEth)) * 100;
+
+    // Show confirmation dialog with percentage information
+    const confirmed = confirm(
+      `Warning: Withdrawing ${withdrawAmount} ETH (${percentWithdrawn.toFixed(
+        2
+      )}% of your deposits) ` +
+        `will reduce your chance of winning the jackpot proportionally. Are you sure you want to proceed?`
+    );
+
+    if (!confirmed) return;
+
+    document.getElementById("status").innerText = "⏳ Withdrawing funds...";
+
+    // Convert ETH to wei for the contract call
+    const amountInWei = ethers.parseEther(withdrawAmount);
+    const tx = await contract.withdraw(amountInWei);
+    await tx.wait();
+
+    document.getElementById(
+      "status"
+    ).innerText = `✅ ${withdrawAmount} ETH withdrawn successfully!`;
+
+    // Update UI
+    await checkWithdrawableAmount();
+    await updateUserInfo();
+  } catch (e) {
+    console.error("Withdrawal error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Withdrawal failed: " + e.message;
+  }
+}
+
+// Add this to your initialization code
+document
+  .getElementById("withdrawFundsBtn")
+  .addEventListener("click", withdrawFunds);
+
+async function resolveENSName(address) {
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const ensName = await provider.lookupAddress(address);
+    return ensName || shortenAddress(address);
+  } catch (e) {
+    console.error("ENS resolution error:", e);
+    return shortenAddress(address);
+  }
+}
+
+function shortenAddress(address) {
+  return address.slice(0, 6) + "..." + address.slice(-4);
+}
+
+async function displayLeaderboard(entries, timeframe = "allTime") {
+  const leaderboardDiv = document.getElementById("leaderboard");
+  leaderboardDiv.innerHTML = `<h3>${getTimeframeTitle(timeframe)}</h3>`;
+
+  // Filter entries based on timeframe
+  const filteredEntries = filterEntriesByTimeframe(entries, timeframe);
+
+  // Sort by amount
+  const sortedEntries = filteredEntries.sort(
+    (a, b) => BigInt(b.amount) - BigInt(a.amount)
+  );
+
+  // Take top 10
+  const topEntries = sortedEntries.slice(0, 10);
+
+  // Create timeframe selector
+  const selector = document.createElement("div");
+  selector.className = "timeframe-selector";
+  selector.innerHTML = `
+    <select id="timeframeSelect">
+      <option value="allTime" ${
+        timeframe === "allTime" ? "selected" : ""
+      }>All Time</option>
+      <option value="weekly" ${
+        timeframe === "weekly" ? "selected" : ""
+      }>Weekly</option>
+      <option value="daily" ${
+        timeframe === "daily" ? "selected" : ""
+      }>Daily</option>
+    </select>
+  `;
+  leaderboardDiv.appendChild(selector);
+
+  // Add event listener to selector
+  document.getElementById("timeframeSelect").addEventListener("change", (e) => {
+    displayLeaderboard(entries, e.target.value);
+  });
+
+  // Display entries
+  for (const entry of topEntries) {
+    const entryDiv = document.createElement("div");
+    entryDiv.className = "leaderboard-entry";
+
+    // Resolve ENS name
+    const displayName = await resolveENSName(entry.user);
+
+    entryDiv.innerHTML = `
+      <span>${displayName}</span>
+      <span>${ethers.formatEther(entry.amount)} ETH</span>
+    `;
+    leaderboardDiv.appendChild(entryDiv);
+  }
+}
+
+function getTimeframeTitle(timeframe) {
+  switch (timeframe) {
+    case "allTime":
+      return "🏆 Top Depositors (All Time)";
+    case "weekly":
+      return "📅 Top Depositors (This Week)";
+    case "daily":
+      return "📆 Top Depositors (Today)";
+    default:
+      return "🏆 Top Depositors";
+  }
+}
+
+function filterEntriesByTimeframe(entries, timeframe) {
+  const now = Math.floor(Date.now() / 1000);
+
+  switch (timeframe) {
+    case "daily":
+      return entries.filter(
+        (entry) => entry.timestamp > now - 86400 // Last 24 hours
+      );
+    case "weekly":
+      return entries.filter(
+        (entry) => entry.timestamp > now - 604800 // Last 7 days
+      );
+    case "allTime":
+    default:
+      return entries;
+  }
+}

@@ -15,7 +15,7 @@
     ></script>
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎰</text></svg>"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤑</text></svg>"
     />
     <style>
       @font-face {
@@ -370,6 +370,26 @@
           <strong>Your Winning Chance:</strong>
           <span id="winChance">0%</span>
         </p>
+        <p>
+          <strong>Available to Withdraw:</strong>
+          <span id="withdrawableAmount">0</span> ETH
+        </p>
+        <p>
+          <strong>Unlock Date:</strong>
+          <span id="unlockDate">-</span>
+        </p>
+        <div id="withdrawalSection" style="display: none; margin-top: 15px">
+          <input
+            type="number"
+            id="withdrawAmount"
+            placeholder="Amount to withdraw"
+            step="0.001"
+            min="0.001"
+          />
+          <button id="withdrawFundsBtn" class="action-button">
+            Withdraw Funds
+          </button>
+        </div>
       </div>
 
       <button
@@ -528,5 +548,33 @@
 
   .how-it-works-content strong {
     color: #00ffff;
+  }
+
+  /* Add to your existing styles */
+  .timeframe-selector {
+    margin-bottom: 15px;
+    text-align: right;
+  }
+
+  .timeframe-selector select {
+    background: #1a0c3a;
+    color: #e0e0ff;
+    border: 2px solid #ff00ff;
+    padding: 5px;
+    font-family: "Press Start 2P", cursive;
+    font-size: 0.7em;
+  }
+
+  #withdrawFundsBtn {
+    background: linear-gradient(#f60, #f90);
+    margin-top: 10px;
+  }
+
+  .leaderboard-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    border-bottom: 1px dashed #555;
+    font-size: 0.8em;
   }
 </style>
