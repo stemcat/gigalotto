@@ -19,10 +19,10 @@ const SUBGRAPH_URL =
 // Load jackpot info with optimized approach
 export async function loadJackpotInfo() {
   // Check if cached data is for the current contract
-  const cachedData = localStorage.getItem("contractData");
-  if (cachedData) {
+  const cachedContractData = localStorage.getItem("contractData");
+  if (cachedContractData) {
     try {
-      const data = JSON.parse(cachedData);
+      const data = JSON.parse(cachedContractData);
       if (data.contractAddress && data.contractAddress !== contractAddress) {
         // Contract address changed, clear cache
         console.log("Contract address changed, clearing cache");
@@ -158,6 +158,7 @@ export async function loadJackpotInfo() {
 
         // Cache the data
         const basicData = {
+          contractAddress: contractAddress,
           totalPoolEth: totalPoolEth || "0",
           jackpotUsdFormatted: jackpotUsdFormatted || "0.00",
           targetUsdFormatted: targetUsdFormatted || "2,200,000.00",
@@ -189,10 +190,10 @@ export async function loadJackpotInfo() {
   }
 
   // If we get here, the subgraph failed - try to use cached data
-  const cachedData = localStorage.getItem("contractData");
-  if (cachedData) {
+  const cachedFallbackData = localStorage.getItem("contractData");
+  if (cachedFallbackData) {
     try {
-      const data = JSON.parse(cachedData);
+      const data = JSON.parse(cachedFallbackData);
       if (Date.now() - data.timestamp < 5 * 60 * 1000) {
         // Cache valid for 5 minutes
         console.log("Using cached data from", new Date(data.timestamp));

@@ -57,6 +57,15 @@ window.showTermsModal = function () {
   document.getElementById("termsModal").showModal();
 };
 
+// Add this function to clear cache and refresh
+window.clearCacheAndRefresh = function () {
+  localStorage.removeItem("contractData");
+  console.log("Cache cleared");
+
+  // Force reload the page
+  window.location.reload();
+};
+
 // Initialize on page load
 window.addEventListener("load", async () => {
   console.log("Page loaded, initializing...");
