@@ -67,6 +67,7 @@ export async function loadJackpotInfo() {
 
   // Try to load from API first (fastest)
   try {
+    console.log("Fetching data from subgraph:", SUBGRAPH_URL);
     const response = await fetch(SUBGRAPH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -86,12 +87,21 @@ export async function loadJackpotInfo() {
       }),
     });
 
+    console.log("Subgraph response status:", response.status);
+
     if (response.ok) {
       const data = await response.json();
+      console.log("Subgraph data received:", data);
+
       if (data.data && data.data.contract) {
+        console.log("Contract data found, updating UI");
         updateUIFromGraphData(data.data.contract);
         return; // Exit early if API works
+      } else {
+        console.error("No contract data in response:", data);
       }
+    } else {
+      console.error("Subgraph response not OK:", await response.text());
     }
   } catch (apiError) {
     console.error(
