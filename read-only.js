@@ -1,7 +1,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details
-const contractAddress = "0x8366A6F4adbB6D2D9fDC4cD5B9b0aC5f12D96dF1";
+const contractAddress = "0xE5aB5F5cb61FeE8650B5Fe1c10Fe8E20961b2081"; // Your new contract address
 const abi = [
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
@@ -37,16 +37,10 @@ export async function loadJackpotInfo() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: `{
-          contract(id: "${contractAddress.toLowerCase()}") {
-            totalPool
-            jackpotUsd
-            targetUsd
-            last24hDepositUsd
-          }
-          entries(first: 20, orderBy: amount, orderDirection: desc) {
-            user
+          newDeposits(first: 20, orderBy: blockTimestamp, orderDirection: desc) {
+            depositor
             amount
-            timestamp
+            blockTimestamp
           }
         }`,
       }),
@@ -58,58 +52,73 @@ export async function loadJackpotInfo() {
       const data = await response.json();
       console.log("Subgraph data received:", data);
 
-      if (data.data && data.data.contract) {
-        console.log("Contract data found:", data.data.contract);
+      if (data.data && data.data.newDeposits) {
+        console.log("Deposits found:", data.data.newDeposits.length);
 
-        // Format values
-        const totalPoolEth = ethers.formatEther(data.data.contract.totalPool);
+        // Process deposits to get total pool and other metrics
+        let totalPool = BigInt(0);
+        let topDepositors = {};
+
+        for (const deposit of data.data.newDeposits) {
+          const amount = BigInt(deposit.amount);
+          totalPool += amount;
+
+          // Track deposits by user for leaderboard
+          const depositor = deposit.depositor.toLowerCase();
+          if (!topDepositors[depositor]) {
+            topDepositors[depositor] = BigInt(0);
+          }
+          topDepositors[depositor] += amount;
+        }
+
+        // Convert to ETH and format
+        const totalPoolEth = ethers.formatEther(totalPool.toString());
+
+        // Estimate USD values (this is simplified)
+        // In a real implementation, you'd get the ETH price from an oracle
+        const ethPriceUsd = 2000; // Placeholder price
         const jackpotUsdFormatted = (
-          Number(data.data.contract.jackpotUsd) / 1e8
+          Number(totalPoolEth) * ethPriceUsd
         ).toFixed(2);
-        const targetUsdFormatted = (
-          Number(data.data.contract.targetUsd) / 1e8
-        ).toFixed(2);
-        const last24hUsdFormatted = (
-          Number(data.data.contract.last24hDepositUsd) / 1e8
-        ).toFixed(2);
+        const targetUsdFormatted = "2,200,000.00"; // Your target from contract
         const percentComplete =
-          (Number(data.data.contract.jackpotUsd) * 100) /
-          Number(data.data.contract.targetUsd);
+          (Number(jackpotUsdFormatted.replace(/,/g, "")) * 100) / 2200000;
 
         // Update UI with basic data
         updateUIWithBasicData(
           totalPoolEth,
           jackpotUsdFormatted,
-          last24hUsdFormatted,
+          "0.00", // Placeholder for last24h
           percentComplete
         );
 
-        // Update leaderboard if entries exist
-        if (data.data.entries && data.data.entries.length > 0) {
-          console.log("Entries found:", data.data.entries.length);
-          const topDepositors = data.data.entries.map((entry) => ({
-            address: entry.user,
-            amount: ethers.formatEther(entry.amount),
-          }));
-          updateLeaderboardFromData(topDepositors);
-        } else {
-          console.log("No entries found in subgraph data");
-          document.getElementById("leaderboard").innerHTML =
-            "<h3>🏆 TOP DEPOSITORS</h3><div class='leaderboard-entry'>No deposits yet</div>";
-        }
+        // Convert topDepositors to array for leaderboard
+        const leaderboardData = Object.entries(topDepositors).map(
+          ([address, amount]) => ({
+            user: address,
+            amount: amount.toString(),
+          })
+        );
+
+        // Sort by amount descending
+        leaderboardData.sort((a, b) =>
+          BigInt(b.amount) > BigInt(a.amount) ? 1 : -1
+        );
+
+        // Update leaderboard
+        updateLeaderboardFromData(leaderboardData.slice(0, 10));
 
         // Cache the data
         const basicData = {
           totalPoolEth,
           jackpotUsdFormatted,
           targetUsdFormatted,
-          last24hUsdFormatted,
+          last24hUsdFormatted: "0.00", // Placeholder
           percentComplete,
-          topDepositors:
-            data.data.entries?.map((entry) => ({
-              address: entry.user,
-              amount: ethers.formatEther(entry.amount),
-            })) || [],
+          topDepositors: leaderboardData.slice(0, 10).map((entry) => ({
+            address: entry.user,
+            amount: ethers.formatEther(entry.amount),
+          })),
           timestamp: Date.now(),
         };
 
@@ -189,13 +198,34 @@ async function tryDirectContractCall() {
     const last24hUsdFormatted = (Number(last24hUsd) / 1e8).toFixed(2);
     const percentComplete = (Number(jackpotUsd) * 100) / Number(targetUsd);
 
-    // Update UI with basic data
+    // Update UI
     updateUIWithBasicData(
       totalPoolEth,
       jackpotUsdFormatted,
       last24hUsdFormatted,
       percentComplete
     );
+
+    // Try to get entries for leaderboard
+    try {
+      const entriesCount = await contract.getEntriesCount();
+      const entries = [];
+
+      // Only fetch up to 20 entries to avoid too many calls
+      const countToFetch = Math.min(Number(entriesCount), 20);
+
+      for (let i = 0; i < countToFetch; i++) {
+        const entry = await contract.getEntry(i);
+        entries.push({
+          address: entry.user,
+        });
+      }
+
+      // Update leaderboard
+      updateLeaderboardFromData(entries);
+    } catch (error) {
+      console.error("Error fetching leaderboard entries:", error);
+    }
 
     // Store basic data
     const basicData = {
@@ -329,4 +359,19 @@ export function setupAutoRefresh() {
 
   // Refresh every 30 seconds
   setInterval(loadJackpotInfo, 30000);
+}
+
+// Add this function to show/hide the error message
+function showDataError(show, message = null) {
+  const errorElement = document.getElementById("dataLoadingError");
+  if (!errorElement) return;
+
+  if (show) {
+    errorElement.style.display = "block";
+    if (message) {
+      errorElement.querySelector("p").textContent = "⚠️ " + message;
+    }
+  } else {
+    errorElement.style.display = "none";
+  }
 }
