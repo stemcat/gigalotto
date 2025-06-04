@@ -47,6 +47,23 @@ export async function loadJackpotInfo() {
   // Try to load from API first (fastest)
   try {
     console.log("Fetching data from subgraph:", SUBGRAPH_URL);
+    console.log(
+      "Query:",
+      `{
+      newDeposits(first: 20, orderBy: blockTimestamp, orderDirection: desc) {
+        depositor
+        amount
+        blockTimestamp
+      }
+      contract(id: "${contractAddress.toLowerCase()}") {
+        totalPool
+        jackpotUsd
+        targetUsd
+        last24hDepositUsd
+      }
+    }`
+    );
+
     const response = await fetch(SUBGRAPH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

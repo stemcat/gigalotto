@@ -61,6 +61,21 @@ window.showTermsModal = function () {
 window.addEventListener("load", async () => {
   console.log("Page loaded, initializing...");
 
+  // Clear any stale cache data
+  if (localStorage.getItem("contractData")) {
+    try {
+      const data = JSON.parse(localStorage.getItem("contractData"));
+      // If the data is older than 1 hour, clear it
+      if (Date.now() - data.timestamp > 60 * 60 * 1000) {
+        console.log("Clearing stale cache data");
+        localStorage.removeItem("contractData");
+      }
+    } catch (e) {
+      console.error("Error parsing cached data:", e);
+      localStorage.removeItem("contractData");
+    }
+  }
+
   // Load basic jackpot info for all users using the public API approach
   setupAutoRefresh();
   console.log("Auto refresh setup complete");
