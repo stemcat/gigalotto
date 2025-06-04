@@ -3,29 +3,26 @@ import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 // Contract details
 const contractAddress = "0xE5aB5F5cb61FeE8650B5Fe1c10Fe8E20961b2081"; // Updated contract address
 const abi = [
-  // Include only the functions we need for wallet operations
+  "function deposit() external payable",
+  "function withdraw() external",
+  "function requestDraw() external",
+  "function userDeposits(address) view returns (uint256)",
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
   "function TARGET_USD() view returns (uint256)",
-  "function last24hDepositUsd() view returns (uint256)",
-  "function getEntriesCount() view returns (uint256)",
-  "function getEntry(uint256 index) view returns (address user, uint256 cumulative)",
-  "function userDeposits(address user) view returns (uint256)",
-  "function deposit() payable",
-  "function withdrawIfWinner()",
-  "function requestDraw()",
-  "function winner() view returns (address)",
-  "function holdStartTimestamp() view returns (uint256)",
   "function canDraw() view returns (bool)",
+  "function winner() view returns (address)",
+  "function getEntriesCount() view returns (uint256)",
+  "function getEntry(uint256) view returns (address, uint256)",
 ];
 
 // Global variables
 let provider;
 let signer;
 let contract;
-let userAccount;
+let userAccount = null;
 
-// Function to get user account
+// Get user account
 export function getUserAccount() {
   return userAccount;
 }
@@ -93,9 +90,12 @@ export async function initWeb3() {
       }
     }
 
-    // Request account access - this triggers the MetaMask popup
-    await window.ethereum.request({ method: "eth_requestAccounts" });
-    console.log("Account access granted");
+    // Get accounts
+    const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    if (accounts.length === 0) {
+      // Request account access if needed
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+    }
 
     provider = new ethers.BrowserProvider(window.ethereum);
     signer = await provider.getSigner();
@@ -269,24 +269,26 @@ async function checkWinnerAndDraw() {
 
 // Check if already connected
 export async function checkIfConnected() {
-  if (!window.ethereum) return false;
-
-  try {
-    // Check if already connected without prompting
-    const accounts = await window.ethereum.request({
-      method: "eth_accounts", // This doesn't trigger the MetaMask popup
-    });
-
-    if (accounts && accounts.length > 0) {
-      // User is already connected, initialize everything
-      await initWeb3();
-      return true;
+  console.log("Checking if already connected...");
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({
+        method: "eth_accounts",
+      });
+      if (accounts.length > 0) {
+        console.log("Already connected to account:", accounts[0]);
+        await initWeb3();
+        return true;
+      } else {
+        console.log("Not connected to any account");
+        return false;
+      }
+    } catch (e) {
+      console.error("Error checking connection:", e);
+      return false;
     }
-    return false;
-  } catch (e) {
-    console.error("Connection check failed:", e);
-    return false;
   }
+  return false;
 }
 
 // Connect wallet with terms check
@@ -559,31 +561,17 @@ function filterEntriesByTimeframe(entries, timeframe) {
   }
 }
 
-// Add this function to handle wallet disconnection
-export async function disconnectWallet() {
-  userAccount = null;
-
-  // Reset UI elements
-  document.getElementById("connectBtn").innerText = "🦊 Connect Wallet";
-  document.getElementById("userDashboard").style.display = "none";
-  document.getElementById("status").innerText = "Wallet disconnected";
-
-  // Clear any user-specific data
-  document.getElementById("userAddress").innerText = "";
-  document.getElementById("userDeposit").innerText = "0";
-  document.getElementById("winChance").innerText = "0%";
-
-  // Clear localStorage to prevent using old cached data
-  localStorage.removeItem("contractData");
-}
-
-// Add event listener for account changes
+// Add this function to handle wallet disconnection and account changes
 export function setupAccountChangeListeners() {
   if (window.ethereum) {
     window.ethereum.on("accountsChanged", (accounts) => {
+      console.log("Account changed:", accounts);
       if (accounts.length === 0) {
         // User disconnected their wallet
-        disconnectWallet();
+        userAccount = null;
+        document.getElementById("connectBtn").innerText = "🦊 Connect Wallet";
+        document.getElementById("userDashboard").style.display = "none";
+        document.getElementById("status").innerText = "Wallet disconnected";
       } else {
         // User switched accounts, reinitialize
         initWeb3();

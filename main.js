@@ -6,9 +6,10 @@ import {
   getUserAccount,
   checkIfConnected,
   connectWallet,
+  setupAccountChangeListeners,
 } from "./wallet.js";
 
-import { setupAutoRefresh } from "./read-only.js";
+import { setupAutoRefresh, tryDirectContractCall } from "./read-only.js";
 
 // Add validation function for minimum amount with debounce
 let debounceTimeout;
@@ -64,6 +65,12 @@ window.clearCacheAndRefresh = function () {
 
   // Force reload the page
   window.location.reload();
+};
+
+// Add this function to force a direct contract call
+window.forceDirectContractCall = function () {
+  console.log("Forcing direct contract call...");
+  tryDirectContractCall();
 };
 
 // Initialize on page load
