@@ -552,22 +552,17 @@
 
   /* Add to your existing styles */
   .timeframe-selector {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     text-align: right;
   }
 
   .timeframe-selector select {
-    background: #1a0c3a;
-    color: #e0e0ff;
-    border: 2px solid #ff00ff;
-    padding: 5px;
-    font-family: "Press Start 2P", cursive;
-    font-size: 0.7em;
-  }
-
-  #withdrawFundsBtn {
-    background: linear-gradient(#f60, #f90);
-    margin-top: 10px;
+    background-color: #333;
+    color: white;
+    border: 1px solid #555;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.8em;
   }
 
   .leaderboard-entry {
@@ -576,6 +571,25 @@
     padding: 8px;
     border-bottom: 1px dashed #555;
     font-size: 0.8em;
+  }
+
+  .leaderboard-entry .rank {
+    width: 30px;
+    text-align: center;
+    font-weight: bold;
+  }
+
+  .leaderboard-entry .address {
+    flex-grow: 1;
+    text-align: left;
+    margin: 0 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .leaderboard-entry .amount {
+    text-align: right;
+    font-weight: bold;
   }
 </style>
 

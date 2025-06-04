@@ -73,6 +73,75 @@ window.forceDirectContractCall = function () {
   tryDirectContractCall();
 };
 
+// Add timeframe change function
+window.changeTimeframe = function (timeframe) {
+  console.log("Changing timeframe to:", timeframe);
+
+  // Get cached data
+  const cachedData = localStorage.getItem("contractData");
+  if (!cachedData) {
+    console.error("No cached data available for timeframe filtering");
+    return;
+  }
+
+  try {
+    const data = JSON.parse(cachedData);
+    if (!data.allDeposits || data.allDeposits.length === 0) {
+      console.error("No deposit data available for timeframe filtering");
+      return;
+    }
+
+    // Filter deposits by timeframe
+    const now = Math.floor(Date.now() / 1000);
+    let filteredDeposits = data.allDeposits;
+
+    switch (timeframe) {
+      case "daily":
+        filteredDeposits = data.allDeposits.filter(
+          (deposit) => deposit.timestamp > now - 86400 // Last 24 hours
+        );
+        break;
+      case "weekly":
+        filteredDeposits = data.allDeposits.filter(
+          (deposit) => deposit.timestamp > now - 604800 // Last 7 days
+        );
+        break;
+      // All time - use all deposits
+    }
+
+    // Process deposits to get top depositors
+    let topDepositors = {};
+
+    for (const deposit of filteredDeposits) {
+      const depositor = deposit.depositor.toLowerCase();
+      if (!topDepositors[depositor]) {
+        topDepositors[depositor] = 0;
+      }
+      topDepositors[depositor] += parseFloat(deposit.amount);
+    }
+
+    // Convert to array for leaderboard
+    const leaderboardData = Object.entries(topDepositors).map(
+      ([address, amount]) => ({
+        address: address,
+        amount: amount.toString(),
+      })
+    );
+
+    // Sort by amount descending
+    leaderboardData.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+
+    // Update leaderboard with filtered data
+    if (typeof updateLeaderboardFromData === "function") {
+      updateLeaderboardFromData(leaderboardData.slice(0, 10));
+    } else {
+      console.error("updateLeaderboardFromData function not available");
+    }
+  } catch (e) {
+    console.error("Error filtering deposits by timeframe:", e);
+  }
+};
+
 // Initialize on page load
 window.addEventListener("load", async () => {
   console.log("Page loaded, initializing...");

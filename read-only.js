@@ -50,7 +50,7 @@ export async function loadJackpotInfo() {
     console.log(
       "Query:",
       `{
-      newDeposits(first: 20, orderBy: blockTimestamp, orderDirection: desc) {
+      newDeposits(first: 100, orderBy: blockTimestamp, orderDirection: desc) {
         depositor
         amount
         blockTimestamp
@@ -69,7 +69,7 @@ export async function loadJackpotInfo() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: `{
-          newDeposits(first: 20, orderBy: blockTimestamp, orderDirection: desc) {
+          newDeposits(first: 100, orderBy: blockTimestamp, orderDirection: desc) {
             depositor
             amount
             blockTimestamp
@@ -134,6 +134,13 @@ export async function loadJackpotInfo() {
         if (data.data.newDeposits && data.data.newDeposits.length > 0) {
           console.log("Deposits found:", data.data.newDeposits.length);
 
+          // Store all deposits for timeframe filtering
+          const allDeposits = data.data.newDeposits.map((deposit) => ({
+            depositor: deposit.depositor,
+            amount: ethers.formatEther(deposit.amount),
+            timestamp: parseInt(deposit.blockTimestamp),
+          }));
+
           // Process deposits to get top depositors
           let topDepositors = {};
 
@@ -173,6 +180,7 @@ export async function loadJackpotInfo() {
             last24hUsdFormatted: last24hUsdFormatted,
             percentComplete: percentComplete,
             topDepositors: leaderboardData.slice(0, 10),
+            allDeposits: allDeposits,
             timestamp: Date.now(),
           };
 
@@ -396,13 +404,27 @@ function useCachedDataIfAvailable() {
 }
 
 // Update leaderboard from data
-function updateLeaderboardFromData(topDepositors) {
+async function updateLeaderboardFromData(topDepositors) {
   const leaderboardEl = document.getElementById("leaderboard");
   if (!leaderboardEl) return;
 
   let html = "<h3>🏆 TOP DEPOSITORS</h3>";
 
+  // Add timeframe selector
+  html += `
+    <div class="timeframe-selector">
+      <select id="timeframeSelect" onchange="window.changeTimeframe(this.value)">
+        <option value="allTime" selected>All Time</option>
+        <option value="weekly">This Week</option>
+        <option value="daily">Today</option>
+      </select>
+    </div>
+  `;
+
   if (topDepositors && topDepositors.length > 0) {
+    // Create a placeholder for each entry that will be updated with ENS names
+    html += `<div id="leaderboardEntries">`;
+
     topDepositors.forEach((depositor, index) => {
       const shortAddress = `${depositor.address.substring(
         0,
@@ -411,18 +433,76 @@ function updateLeaderboardFromData(topDepositors) {
       html += `
         <div class="leaderboard-entry">
           <span class="rank">${index + 1}</span>
-          <span class="address">${shortAddress}</span>
-          <span class="amount">${parseFloat(depositor.amount).toFixed(
+          <span class="address" id="leaderboard-address-${index}" data-address="${
+        depositor.address
+      }">${shortAddress}</span>
+          <span class="amount">${parseFloat(depositor.amount || 0).toFixed(
             4
           )} ETH</span>
         </div>
       `;
     });
+
+    html += `</div>`;
   } else {
     html += "<div class='leaderboard-entry'>No deposits yet</div>";
   }
 
   leaderboardEl.innerHTML = html;
+
+  // Now resolve ENS names for each address
+  if (topDepositors && topDepositors.length > 0) {
+    resolveLeaderboardENSNames(topDepositors);
+  }
+}
+
+// Function to resolve ENS names for leaderboard
+async function resolveLeaderboardENSNames(topDepositors) {
+  try {
+    // Use a public RPC endpoint that allows CORS
+    const provider = new ethers.JsonRpcProvider(
+      "https://eth-sepolia.public.blastapi.io"
+    );
+
+    for (let i = 0; i < topDepositors.length; i++) {
+      const addressElement = document.getElementById(
+        `leaderboard-address-${i}`
+      );
+      if (addressElement) {
+        const address = addressElement.getAttribute("data-address");
+        try {
+          // Try to resolve ENS name
+          const ensName = await provider.lookupAddress(address);
+          if (ensName) {
+            addressElement.innerText = ensName;
+          }
+        } catch (error) {
+          console.log(`Could not resolve ENS for ${address}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error resolving ENS names:", error);
+  }
+}
+
+// Filter entries by timeframe
+function filterEntriesByTimeframe(entries, timeframe) {
+  const now = Math.floor(Date.now() / 1000);
+
+  switch (timeframe) {
+    case "daily":
+      return entries.filter(
+        (entry) => entry.timestamp > now - 86400 // Last 24 hours
+      );
+    case "weekly":
+      return entries.filter(
+        (entry) => entry.timestamp > now - 604800 // Last 7 days
+      );
+    case "allTime":
+    default:
+      return entries;
+  }
 }
 
 // Update status message based on percent complete
@@ -480,3 +560,6 @@ export function clearCache() {
   // Reload data
   loadJackpotInfo();
 }
+
+// Make updateLeaderboardFromData available globally
+window.updateLeaderboardFromData = updateLeaderboardFromData;
