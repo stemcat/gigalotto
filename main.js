@@ -30,54 +30,61 @@ document.addEventListener("DOMContentLoaded", async function () {
   try {
     console.log("Initializing app...");
 
+    // Add validateMinAmount function
+    window.validateMinAmount = function (input) {
+      if (input.value && parseFloat(input.value) < 0.001) {
+        input.setCustomValidity("Minimum deposit is 0.001 ETH");
+        document.getElementById("status").innerText =
+          "⚠️ Minimum deposit is 0.001 ETH";
+      } else {
+        input.setCustomValidity("");
+        document.getElementById("status").innerText = "";
+      }
+    };
+
     // Set up deposit button
     const depositBtn = document.getElementById("depositBtn");
     if (depositBtn) {
       depositBtn.onclick = function () {
         // Show deposit modal if it exists
         const modal = document.getElementById("depositModal");
-        if (modal && modal.showModal) {
+        if (modal && typeof modal.showModal === "function") {
           modal.showModal();
         } else {
-          // Fallback if modal doesn't exist
-          window.connectAndDeposit();
-        }
-      };
-    }
-
-    // Set up connect button
-    const connectBtn = document.getElementById("connectBtn");
-    if (connectBtn) {
-      connectBtn.onclick = async function () {
-        if (window.ethereum) {
-          try {
-            await window.ethereum.request({ method: "eth_requestAccounts" });
+          // Fallback if modal doesn't exist or showModal not supported
+          if (window.connectAndDeposit) {
+            window.connectAndDeposit();
+          } else {
+            console.error("connectAndDeposit function not available");
             document.getElementById("status").innerText =
-              "✅ Wallet connected!";
-
-            // Hide connect button, show deposit button
-            connectBtn.style.display = "none";
-            if (depositBtn) depositBtn.style.display = "inline-block";
-
-            // Update UI
-            if (typeof window.updateUI === "function") {
-              window.updateUI();
-            }
-          } catch (error) {
-            document.getElementById("status").innerText =
-              "⚠️ Connection failed: " + error.message;
+              "⚠️ Deposit functionality not available";
           }
-        } else {
-          document.getElementById("status").innerText =
-            "⚠️ MetaMask not detected";
         }
       };
     }
 
-    // Initialize other components
+    // Initialize read-only functionality
     if (typeof window.initializeReadOnly === "function") {
       window.initializeReadOnly();
+    } else {
+      // If not available yet, import and initialize
+      import("./read-only.js")
+        .then((module) => {
+          if (module.initializeReadOnly) {
+            module.initializeReadOnly();
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load read-only module:", err);
+        });
     }
+
+    // Load jackpot info
+    setTimeout(() => {
+      if (typeof window.loadJackpotInfo === "function") {
+        window.loadJackpotInfo();
+      }
+    }, 500);
   } catch (error) {
     console.error("Initialization error:", error);
     document.getElementById("status").innerText =

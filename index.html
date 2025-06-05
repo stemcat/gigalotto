@@ -430,7 +430,14 @@
         </div>
         <div class="deposits-24h" style="margin-top: 15px">
           <strong>🔥 Last 24h Deposits:</strong>
-          <span id="eth24h">Loading...</span> ETH
+          <span id="eth24h">
+            <div class="loading-animation">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </div>
+          </span>
+          ETH
         </div>
       </div>
 
@@ -447,7 +454,13 @@
             <option value="7d">Last 7d</option>
           </select>
         </div>
-        <div id="leaderboard"></div>
+        <div id="leaderboard">
+          <div class="loading-animation">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
       </div>
 
       <div class="wallet">
@@ -916,3 +929,11 @@
     </div>
   </div>
 </div>
+
+// Add validateMinAmount function function validateMinAmount(input) { if
+(input.value && parseFloat(input.value) < 0.001) {
+input.setCustomValidity("Minimum deposit is 0.001 ETH");
+document.getElementById("status").innerText = "⚠️ Minimum deposit is 0.001 ETH";
+} else { input.setCustomValidity("");
+document.getElementById("status").innerText = ""; } } // Make the function
+available globally window.validateMinAmount = validateMinAmount;

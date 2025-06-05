@@ -926,3 +926,41 @@ window.changeTimeframe = changeTimeframe;
 
 // Import the debugWalletConnection function from wallet.js
 import { debugWalletConnection } from "./wallet.js";
+
+// Initialize read-only functionality
+export async function initializeReadOnly() {
+  console.log("Initializing read-only functionality");
+
+  // Set up auto-refresh
+  setupAutoRefresh();
+
+  // Load jackpot info immediately
+  await loadJackpotInfo();
+
+  // Make the function available globally
+  window.initializeReadOnly = initializeReadOnly;
+}
+
+// Load jackpot info from subgraph or contract
+export async function loadJackpotInfo() {
+  console.log("Loading jackpot info");
+
+  try {
+    // Try to fetch from subgraph first
+    const subgraphSuccess = await tryFetchFromSubgraph();
+
+    if (!subgraphSuccess) {
+      console.log("Subgraph fetch failed, trying direct contract call");
+      await tryDirectContractCall();
+    }
+  } catch (error) {
+    console.error("Error loading jackpot info:", error);
+    showDataError(true, "Failed to load data: " + error.message);
+  }
+}
+
+// Make loadJackpotInfo available globally
+window.loadJackpotInfo = loadJackpotInfo;
+
+// Call initializeReadOnly when the script loads
+document.addEventListener("DOMContentLoaded", initializeReadOnly);

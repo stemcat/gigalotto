@@ -136,8 +136,13 @@ export async function initWeb3() {
 // Handle deposits
 export async function connectAndDeposit() {
   try {
-    // Close the modal
-    document.getElementById("depositModal").close();
+    // Get the modal element
+    const modal = document.getElementById("depositModal");
+
+    // Only try to close if it's a dialog element with showModal method
+    if (modal && typeof modal.close === "function") {
+      modal.close();
+    }
 
     // Get the amount from the input
     const amountInput = document.getElementById("depositAmount");
@@ -175,8 +180,10 @@ export async function connectAndDeposit() {
     document.getElementById("status").innerText = "✅ Deposit successful!";
 
     // Show share modal
-    const modal = document.getElementById("shareModal");
-    if (modal?.showModal) modal.showModal();
+    const shareModal = document.getElementById("shareModal");
+    if (shareModal && typeof shareModal.showModal === "function") {
+      shareModal.showModal();
+    }
 
     // Update UI
     updateUI();
