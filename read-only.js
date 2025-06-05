@@ -150,9 +150,8 @@ export async function loadJackpotInfo() {
   // Try to load from API first (fastest)
   try {
     console.log("Fetching data from subgraph:", SUBGRAPH_URL);
-    console.log(
-      "Query:",
-      `{
+
+    const query = `{
       newDeposits(first: 100, orderBy: blockTimestamp, orderDirection: desc) {
         depositor
         amount
@@ -164,129 +163,132 @@ export async function loadJackpotInfo() {
         targetUsd
         last24hDepositUsd
       }
-    }`
-    );
+    }`;
+
+    console.log("Query:", query);
 
     const response = await fetch(SUBGRAPH_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `{
-          newDeposits(first: 100, orderBy: blockTimestamp, orderDirection: desc) {
-            depositor
-            amount
-            blockTimestamp
-          }
-          contract(id: "${contractAddress.toLowerCase()}") {
-            totalPool
-            jackpotUsd
-            targetUsd
-            last24hDepositUsd
-          }
-        }`,
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ query }),
     });
 
-    if (response.ok) {
-      const responseData = await response.json();
-      console.log("Subgraph response status:", response.status);
-      console.log("Subgraph data received:", responseData);
+    console.log("Subgraph response status:", response.status);
 
-      if (responseData && responseData.data) {
-        const { contract, newDeposits } = responseData.data;
+    if (!response.ok) {
+      console.error(
+        "Subgraph response not OK:",
+        response.status,
+        response.statusText
+      );
+      throw new Error(
+        `Subgraph request failed: ${response.status} ${response.statusText}`
+      );
+    }
 
-        if (contract) {
-          // Format values
-          const totalPoolEth = ethers.formatEther(contract.totalPool);
-          const jackpotUsdFormatted = (
-            Number(contract.jackpotUsd) / 1e8
-          ).toFixed(2);
-          const targetUsdFormatted = (Number(contract.targetUsd) / 1e8).toFixed(
-            2
-          );
-          const last24hUsdFormatted = (
-            Number(contract.last24hDepositUsd) / 1e8
-          ).toFixed(2);
+    const responseData = await response.json();
+    console.log("Subgraph data received:", responseData);
 
-          // Calculate percentage
-          const percentComplete =
-            (Number(contract.jackpotUsd) * 100) / Number(contract.targetUsd);
+    if (responseData && responseData.data) {
+      const { contract, newDeposits } = responseData.data;
 
-          // Update UI with basic data
-          updateUIWithBasicData(
-            totalPoolEth,
-            jackpotUsdFormatted,
-            last24hUsdFormatted,
-            percentComplete
-          );
+      if (contract) {
+        // Format values
+        const totalPoolEth = ethers.formatEther(contract.totalPool);
+        const jackpotUsdFormatted = (Number(contract.jackpotUsd) / 1e8).toFixed(
+          2
+        );
+        const targetUsdFormatted = (Number(contract.targetUsd) / 1e8).toFixed(
+          2
+        );
+        const last24hUsdFormatted = (
+          Number(contract.last24hDepositUsd) / 1e8
+        ).toFixed(2);
 
-          // Process deposits for leaderboard
-          if (newDeposits && newDeposits.length > 0) {
-            const deposits = newDeposits;
+        // Calculate percentage
+        const percentComplete =
+          (Number(contract.jackpotUsd) * 100) / Number(contract.targetUsd);
 
-            // Group by depositor
-            const depositorMap = {};
-            deposits.forEach((deposit) => {
-              const address = deposit.depositor;
-              const amount = ethers.formatEther(deposit.amount);
+        // Update UI with basic data
+        updateUIWithBasicData(
+          totalPoolEth,
+          jackpotUsdFormatted,
+          last24hUsdFormatted,
+          percentComplete
+        );
 
-              if (!depositorMap[address]) {
-                depositorMap[address] = {
-                  address,
-                  amount: 0,
-                  timestamp: Number(deposit.blockTimestamp),
-                };
-              }
+        // Process deposits for leaderboard
+        if (newDeposits && newDeposits.length > 0) {
+          const deposits = newDeposits;
 
-              depositorMap[address].amount += parseFloat(amount);
-            });
+          // Group by depositor
+          const depositorMap = {};
+          deposits.forEach((deposit) => {
+            const address = deposit.depositor;
+            const amount = ethers.formatEther(deposit.amount);
 
-            // Convert to array and sort
-            const leaderboardData = Object.values(depositorMap)
-              .sort((a, b) => b.amount - a.amount)
-              .map((entry) => ({
-                ...entry,
-                amount: entry.amount.toFixed(6),
-              }));
+            if (!depositorMap[address]) {
+              depositorMap[address] = {
+                address,
+                amount: 0,
+                timestamp: Number(deposit.blockTimestamp),
+              };
+            }
 
-            // Update leaderboard
-            updateLeaderboardFromData(leaderboardData.slice(0, 10));
+            depositorMap[address].amount += parseFloat(amount);
+          });
 
-            // Cache all deposits for timeframe filtering
-            const allDeposits = deposits.map((d) => ({
-              depositor: d.depositor,
-              amount: ethers.formatEther(d.amount),
-              timestamp: Number(d.blockTimestamp),
+          // Convert to array and sort
+          const leaderboardData = Object.values(depositorMap)
+            .sort((a, b) => b.amount - a.amount)
+            .map((entry) => ({
+              ...entry,
+              amount: entry.amount.toFixed(6),
             }));
 
-            // Cache the data
-            const cacheData = {
-              timestamp: Date.now(),
-              totalPoolEth,
-              jackpotUsdFormatted,
-              targetUsdFormatted,
-              last24hUsdFormatted,
-              percentComplete,
-              topDepositors: leaderboardData.slice(0, 10),
-              allDeposits,
-            };
+          // Update leaderboard
+          updateLeaderboardFromData(leaderboardData.slice(0, 10));
 
-            localStorage.setItem("contractData", JSON.stringify(cacheData));
-          }
+          // Cache all deposits for timeframe filtering
+          const allDeposits = deposits.map((d) => ({
+            depositor: d.depositor,
+            amount: ethers.formatEther(d.amount),
+            timestamp: Number(d.blockTimestamp),
+          }));
 
-          // Hide error message if it was showing
-          showDataError(false);
+          // Cache the data
+          const cacheData = {
+            timestamp: Date.now(),
+            totalPoolEth,
+            jackpotUsdFormatted,
+            targetUsdFormatted,
+            last24hUsdFormatted,
+            percentComplete,
+            topDepositors: leaderboardData.slice(0, 10),
+            allDeposits,
+          };
 
-          return true;
+          localStorage.setItem("contractData", JSON.stringify(cacheData));
         }
+
+        // Hide error message if it was showing
+        showDataError(false);
+
+        return true;
       }
     }
+
+    // If we get here, subgraph returned data but not in expected format
+    console.error("Subgraph data format unexpected:", responseData);
+    throw new Error("Unexpected data format from subgraph");
   } catch (e) {
     console.error("Error fetching from subgraph:", e);
+    // If we get here, subgraph failed, try direct contract call
+    return await tryDirectContractCall();
   }
-
-  // If we get here, subgraph failed, try direct contract call
-  return await tryDirectContractCall();
 }
 
 // Improved direct contract call with debug option

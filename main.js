@@ -33,23 +33,28 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Set up connect button
     const connectBtn = document.getElementById("connectBtn");
     if (connectBtn) {
-      connectBtn.addEventListener("click", connectWallet);
+      connectBtn.onclick = function () {
+        console.log("Connect button clicked");
+        connectWallet();
+      };
     }
 
     // Set up deposit button
     const depositBtn = document.getElementById("depositBtn");
     if (depositBtn) {
-      depositBtn.addEventListener("click", function () {
+      depositBtn.onclick = function () {
+        console.log("Deposit button clicked");
         if (window.connectAndDeposit) {
           window.connectAndDeposit();
         } else {
           console.error("connectAndDeposit function not available");
         }
-      });
+      };
     }
 
     // Check if already connected
     const isConnected = await checkIfConnected();
+    console.log("Is connected:", isConnected);
 
     // Show/hide buttons based on connection status
     if (isConnected) {
@@ -59,6 +64,9 @@ document.addEventListener("DOMContentLoaded", async function () {
       if (connectBtn) connectBtn.style.display = "inline-block";
       if (depositBtn) depositBtn.style.display = "none";
     }
+
+    // Set up account change listeners
+    setupAccountChangeListeners();
 
     // Initialize read-only functionality
     if (typeof window.initializeReadOnly === "function") {
@@ -102,4 +110,22 @@ window.clearCacheAndRefresh = function () {
 window.forceDirectContractCall = function () {
   console.log("Forcing direct contract call...");
   tryDirectContractCall(true);
+};
+
+// Add this function to test all connections
+window.testAllConnections = function () {
+  console.log("Testing all connections...");
+  document.getElementById("status").innerText = "⏳ Testing connections...";
+
+  // Test subgraph connection
+  debugSubgraphConnection();
+
+  // Test wallet connection
+  debugWalletConnection();
+
+  // Test direct contract call
+  tryDirectContractCall(true);
+
+  document.getElementById("status").innerText =
+    "✅ Connection tests complete. Check console for details.";
 };

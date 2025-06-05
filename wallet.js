@@ -27,10 +27,10 @@ export const abi = [
 ];
 
 // Global variables
-let provider;
-let signer;
-let contract;
+let provider = null;
+let signer = null;
 let userAccount = null;
+let contract = null;
 
 // Get user account
 export function getUserAccount() {
@@ -403,11 +403,15 @@ export async function checkWinnerAndDraw() {
 
 // Check if already connected
 export async function checkIfConnected() {
+  console.log("Checking if already connected...");
   if (!window.ethereum) return false;
 
   try {
     const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    console.log("Current accounts:", accounts);
+
     if (accounts.length > 0) {
+      console.log("Found connected account:", accounts[0]);
       return await initWeb3();
     }
 
@@ -487,6 +491,7 @@ async function updateUserDashboard() {
 
 // Connect wallet
 export async function connectWallet() {
+  console.log("Connect wallet called");
   try {
     if (!window.ethereum) {
       document.getElementById("status").innerText =
