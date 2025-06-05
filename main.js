@@ -52,44 +52,44 @@ document.addEventListener("DOMContentLoaded", async function () {
       };
     }
 
-    // Check if already connected
-    const isConnected = await checkIfConnected();
-    console.log("Is connected:", isConnected);
+    // Import wallet.js first to ensure it's loaded
+    await import("./wallet.js").then(async (walletModule) => {
+      console.log("Wallet module loaded");
 
-    // Show/hide buttons based on connection status
-    if (isConnected) {
-      if (connectBtn) connectBtn.style.display = "none";
-      if (depositBtn) depositBtn.style.display = "inline-block";
-    } else {
-      if (connectBtn) connectBtn.style.display = "inline-block";
-      if (depositBtn) depositBtn.style.display = "none";
-    }
+      // Check if already connected
+      const isConnected = await walletModule.checkIfConnected();
+      console.log("Is connected:", isConnected);
 
-    // Set up account change listeners
-    setupAccountChangeListeners();
-
-    // Initialize read-only functionality
-    if (typeof window.initializeReadOnly === "function") {
-      window.initializeReadOnly();
-    } else {
-      // If not available yet, import and initialize
-      import("./read-only.js")
-        .then((module) => {
-          if (module.initializeReadOnly) {
-            module.initializeReadOnly();
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to load read-only module:", err);
-        });
-    }
-
-    // Load jackpot info
-    setTimeout(() => {
-      if (typeof window.loadJackpotInfo === "function") {
-        window.loadJackpotInfo();
+      // Show/hide buttons based on connection status
+      if (isConnected) {
+        if (connectBtn) connectBtn.style.display = "none";
+        if (depositBtn) depositBtn.style.display = "inline-block";
+      } else {
+        if (connectBtn) connectBtn.style.display = "inline-block";
+        if (depositBtn) depositBtn.style.display = "none";
       }
-    }, 500);
+
+      // Set up account change listeners
+      walletModule.setupAccountChangeListeners();
+    });
+
+    // Import read-only.js after wallet.js
+    await import("./read-only.js").then((readOnlyModule) => {
+      console.log("Read-only module loaded");
+
+      if (readOnlyModule.initializeReadOnly) {
+        readOnlyModule.initializeReadOnly();
+      }
+
+      // Load jackpot info after a short delay
+      setTimeout(() => {
+        if (typeof window.loadJackpotInfo === "function") {
+          window.loadJackpotInfo();
+        } else {
+          console.error("loadJackpotInfo function not available");
+        }
+      }, 1000);
+    });
   } catch (error) {
     console.error("Initialization error:", error);
     document.getElementById("status").innerText =

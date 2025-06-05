@@ -656,45 +656,15 @@ async function resolveENSNames(topDepositors) {
     }
   } catch (error) {
     console.error("Error setting up ENS resolution:", error);
-
-    // Fallback to a direct API call if available
-    try {
-      // This is a placeholder - replace with an actual Sepolia ENS API if available
-      console.log("Trying API fallback for ENS resolution");
-
-      for (let i = 0; i < topDepositors.length; i++) {
-        const address = topDepositors[i].address;
-        if (!address) continue;
-
-        const addressElement = document.getElementById(
-          `leaderboard-address-${i}`
-        );
-        if (!addressElement) continue;
-
-        // Try using a Sepolia-specific API if available
-        try {
-          // Note: You would need to replace this with an actual Sepolia ENS API
-          const response = await fetch(
-            `https://sepolia-api.example.com/ens/resolve/${address}`,
-            { mode: "cors" }
-          ).catch(() => null); // Catch fetch errors
-
-          if (response && response.ok) {
-            const data = await response.json();
-            if (data && data.name) {
-              console.log(`API found ENS name for ${address}: ${data.name}`);
-              addressElement.innerText = data.name;
-              addressElement.title = address;
-            }
-          }
-        } catch (apiError) {
-          // Silently fail for API errors
-        }
-      }
-    } catch (apiError) {
-      console.error("All ENS resolution methods failed:", apiError);
-    }
   }
+}
+
+// Helper function to shorten addresses
+function shortenAddress(address) {
+  if (!address) return "";
+  return (
+    address.substring(0, 6) + "..." + address.substring(address.length - 4)
+  );
 }
 
 // Add a function to manually trigger ENS resolution
@@ -746,19 +716,17 @@ function updateStatusMessageFromPercent(percentComplete) {
   if (!statusEl) return;
 
   if (percentComplete >= 100) {
-    statusEl.innerText = "🔥 JACKPOT READY! Waiting for cooldown period...";
+    statusEl.innerText =
+      "🔥 JACKPOT READY! Next deposit will trigger winner selection!";
     statusEl.className = "status-ready";
   } else if (percentComplete >= 90) {
-    statusEl.innerText =
-      "🔥 JACKPOT ALMOST READY! " + percentComplete.toFixed(1) + "% complete";
+    statusEl.innerText = "🔥 Almost there! Jackpot is nearly ready!";
     statusEl.className = "status-almost";
   } else if (percentComplete >= 50) {
-    statusEl.innerText =
-      "🚀 JACKPOT GROWING! " + percentComplete.toFixed(1) + "% complete";
+    statusEl.innerText = "🚀 Jackpot is growing fast!";
     statusEl.className = "status-growing";
   } else {
-    statusEl.innerText =
-      "🌱 JACKPOT BUILDING! " + percentComplete.toFixed(1) + "% complete";
+    statusEl.innerText = "💰 Jackpot is building up!";
     statusEl.className = "status-building";
   }
 }
@@ -862,13 +830,16 @@ export function changeTimeframe(timeframe) {
       })
     );
 
-    // Sort by amount descending
+    // Sort by amount (descending)
     leaderboardData.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
 
     // Update leaderboard with filtered data
     updateLeaderboardFromData(leaderboardData.slice(0, 10), timeframe);
-  } catch (e) {
-    console.error("Error filtering by timeframe:", e);
+
+    // Save selected timeframe
+    localStorage.setItem("selectedTimeframe", timeframe);
+  } catch (error) {
+    console.error("Error filtering by timeframe:", error);
   }
 }
 

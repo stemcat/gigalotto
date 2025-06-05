@@ -521,6 +521,9 @@ export async function connectWallet() {
   }
 }
 
+// Make connectWallet available globally
+window.connectWallet = connectWallet;
+
 // Add function to withdraw fees
 export async function withdrawFees() {
   try {
