@@ -135,31 +135,50 @@ export async function initWeb3() {
 
 // Handle deposits
 export async function connectAndDeposit() {
-  const ethAmount = document.getElementById("ethAmount").value;
-  if (!ethAmount || parseFloat(ethAmount) < 0.001) {
-    document.getElementById("status").innerText =
-      "⚠️ Enter a valid ETH amount. (min: 0.001)";
-    return;
-  }
-
   try {
-    document.getElementById("status").innerText = "⏳ Sending transaction...";
-    const tx = await contract.deposit({ value: ethers.parseEther(ethAmount) });
+    // Close the modal
+    document.getElementById("depositModal").close();
 
-    // Add visual effect while waiting for confirmation
-    document.getElementById("status").innerHTML =
-      '<div class="hot-flame">🔥 Transaction pending... 🔥</div>';
+    // Get the amount from the input
+    const amountInput = document.getElementById("depositAmount");
+    const amount = amountInput.value;
 
+    // Validate amount
+    if (!amount || parseFloat(amount) < 0.001) {
+      document.getElementById("status").innerText =
+        "⚠️ Minimum deposit is 0.001 ETH";
+      return;
+    }
+
+    // Check if wallet is connected
+    if (!userAccount) {
+      const connected = await connectWallet();
+      if (!connected) {
+        document.getElementById("status").innerText =
+          "⚠️ Please connect your wallet first";
+        return;
+      }
+    }
+
+    document.getElementById("status").innerText = "⏳ Confirming deposit...";
+
+    // Convert amount to wei
+    const amountWei = ethers.parseEther(amount);
+
+    // Send transaction
+    const tx = await contract.deposit({ value: amountWei });
+    document.getElementById("status").innerText =
+      "⏳ Deposit transaction sent...";
+
+    // Wait for confirmation
     await tx.wait();
     document.getElementById("status").innerText = "✅ Deposit successful!";
-
-    // Show full-page confetti
-    triggerConfetti();
 
     // Show share modal
     const modal = document.getElementById("shareModal");
     if (modal?.showModal) modal.showModal();
 
+    // Update UI
     updateUI();
   } catch (e) {
     console.error("Deposit error:", e);
@@ -174,6 +193,9 @@ export async function connectAndDeposit() {
     }
   }
 }
+
+// Make connectAndDeposit available globally
+window.connectAndDeposit = connectAndDeposit;
 
 // Handle withdrawals
 export async function withdrawWinnings() {
@@ -231,17 +253,20 @@ export async function updateUI() {
   try {
     // Get user deposit
     const deposit = await contract.userDeposits(userAccount);
-    console.log("User deposit:", ethers.formatEther(deposit));
+
+    // Get total pool
+    const totalPool = await contract.totalPool();
 
     // Calculate win chance
-    const totalPool = await contract.totalPool();
-    console.log("Total pool:", ethers.formatEther(totalPool));
+    let winChance = 0;
+    if (totalPool > 0) {
+      winChance = (Number(deposit) / Number(totalPool)) * 100;
+    }
 
-    let winChanceDisplay = "0%";
-    if (totalPool > 0 && deposit > 0) {
-      const winChance = (deposit * 100n) / totalPool;
-      winChanceDisplay = `${winChance.toString()}%`;
-      console.log("Win chance:", winChanceDisplay);
+    // Format win chance for display
+    let winChanceDisplay = winChance.toFixed(6) + "%";
+    if (winChance < 0.000001 && winChance > 0) {
+      winChanceDisplay = "< 0.000001%";
     }
 
     // Update user dashboard
@@ -250,18 +275,9 @@ export async function updateUI() {
       6
     )}...${userAccount.slice(-4)}`;
     document.getElementById("userDeposit").innerText =
-      ethers.formatEther(deposit);
+      ethers.formatEther(deposit) + " ETH";
     document.getElementById("winChance").innerText = winChanceDisplay;
     document.getElementById("userDashboard").style.display = "block";
-
-    // Check if user is admin and show admin section
-    if (isAdmin(userAccount)) {
-      console.log("Admin user detected, showing admin section");
-      const adminSection = document.getElementById("adminSection");
-      if (adminSection) {
-        adminSection.style.display = "block";
-      }
-    }
 
     // Check if user is winner
     await checkWinnerAndDraw();
@@ -276,7 +292,7 @@ export async function checkWinnerAndDraw() {
 
   try {
     // Check if user is admin
-    if (isAdmin(userAccount)) {
+    if (await isAdmin(userAccount)) {
       // Show admin section
       const adminSection = document.getElementById("adminSection");
       if (!adminSection) {
@@ -355,31 +371,16 @@ export async function checkWinnerAndDraw() {
 
 // Check if already connected
 export async function checkIfConnected() {
+  if (!window.ethereum) return false;
+
   try {
     const accounts = await window.ethereum.request({ method: "eth_accounts" });
     if (accounts.length > 0) {
-      userAccount = accounts[0];
-      console.log("Already connected:", userAccount);
-      document.getElementById("connectBtn").innerText = "Deposit";
-      document.getElementById("status").innerText =
-        "✅ Connected: " + shortenAddress(userAccount);
-
-      // Update user dashboard
-      updateUserDashboard();
-
-      // Check if admin and show admin section
-      if (isAdmin(userAccount)) {
-        const adminSection = document.getElementById("adminSection");
-        if (adminSection) {
-          adminSection.style.display = "block";
-        }
-      }
-
-      return true;
+      return await initWeb3();
     }
     return false;
   } catch (e) {
-    console.error("Error checking connection:", e);
+    console.error("Check connection error:", e);
     return false;
   }
 }
@@ -390,12 +391,14 @@ function shortenAddress(address) {
 }
 
 // Check if user is admin
-function isAdmin(address) {
-  // Admin address check
-  const adminAddresses = [
-    "0xe9D99D4380e80DE290D10F741F77728954fe2d81".toLowerCase(),
-  ];
-  return adminAddresses.includes(address.toLowerCase());
+async function isAdmin(address) {
+  try {
+    const owner = await contract.owner();
+    return owner.toLowerCase() === address.toLowerCase();
+  } catch (e) {
+    console.error("Admin check error:", e);
+    return false;
+  }
 }
 
 // Update user dashboard
@@ -567,30 +570,29 @@ export async function checkExpiredWinner() {
 
 // Set up account change listeners
 export function setupAccountChangeListeners() {
-  if (window.ethereum) {
-    window.ethereum.on("accountsChanged", (accounts) => {
-      console.log("Account changed to:", accounts[0]);
-      if (accounts.length === 0) {
-        // User disconnected their wallet
-        userAccount = null;
-        document.getElementById("status").innerText = "Wallet disconnected";
-        document.getElementById("userDashboard").style.display = "none";
-        document.getElementById("connectBtn").innerText = "Connect Wallet";
-      } else {
-        // User switched accounts
-        userAccount = accounts[0];
-        document.getElementById("status").innerText =
-          "✅ Connected: " + shortenAddress(userAccount);
-        updateUserDashboard();
-      }
-    });
+  if (!window.ethereum) return;
 
-    window.ethereum.on("chainChanged", (chainId) => {
-      console.log("Network changed to:", chainId);
-      // Reload the page on chain change
-      window.location.reload();
-    });
-  }
+  // Handle account changes
+  window.ethereum.on("accountsChanged", (accounts) => {
+    console.log("Accounts changed:", accounts);
+    if (accounts.length === 0) {
+      // User disconnected
+      document.getElementById("status").innerText = "Wallet disconnected";
+      document.getElementById("userDashboard").style.display = "none";
+      document.getElementById("connectBtn").innerText = "Connect Wallet";
+      userAccount = null;
+    } else {
+      // Account changed, reinitialize
+      initWeb3();
+    }
+  });
+
+  // Handle chain changes
+  window.ethereum.on("chainChanged", (chainId) => {
+    console.log("Chain changed:", chainId);
+    // Reload the page on chain change
+    window.location.reload();
+  });
 }
 
 // Debug wallet connection with more detailed logging
@@ -641,6 +643,9 @@ export function debugWalletConnection() {
   }
 }
 
+// Make debugWalletConnection available globally
+window.debugWalletConnection = debugWalletConnection;
+
 // Helper function for confetti effect
 function triggerConfetti() {
   if (typeof confetti === "function") {
@@ -690,49 +695,25 @@ export async function setFee() {
 export async function checkCanDraw() {
   try {
     const canDraw = await contract.canDraw();
-    const adminStatusEl = document.getElementById("adminStatus");
-
-    if (adminStatusEl) {
+    const adminStatus = document.getElementById("adminStatus");
+    if (adminStatus) {
       if (canDraw) {
-        adminStatusEl.innerHTML =
-          "✅ Draw is possible now! <button onclick='window.requestDraw()'>Request Draw</button>";
+        adminStatus.innerText = "✅ Draw is possible now!";
+        adminStatus.className = "status-ready";
       } else {
-        // Check why draw is not possible
-        const holdStartTimestamp = await contract.holdStartTimestamp();
-        const last24hDepositUsd = await contract.last24hDepositUsd();
-        const MIN_24H_USD = await contract.MIN_24H_USD();
-
-        if (holdStartTimestamp == 0) {
-          adminStatusEl.innerText =
-            "❌ Draw not possible: No hold period started yet";
-        } else {
-          const now = Math.floor(Date.now() / 1000);
-          const holdTime = Number(holdStartTimestamp);
-          const lockPeriod = 5 * 60; // 5 minutes for testing
-
-          if (now < holdTime + lockPeriod) {
-            const remainingTime = holdTime + lockPeriod - now;
-            const minutes = Math.floor(remainingTime / 60);
-            const seconds = remainingTime % 60;
-            adminStatusEl.innerText = `⏳ Draw not possible: Lock period active (${minutes}m ${seconds}s remaining)`;
-          } else if (Number(last24hDepositUsd) >= Number(MIN_24H_USD)) {
-            adminStatusEl.innerText = `❌ Draw not possible: 24h deposits (${
-              Number(last24hDepositUsd) / 1e8
-            } USD) exceed minimum (${Number(MIN_24H_USD) / 1e8} USD)`;
-          } else {
-            adminStatusEl.innerText = "❓ Draw not possible: Unknown reason";
-          }
-        }
+        adminStatus.innerText = "⏳ Draw conditions not met yet";
+        adminStatus.className = "status-waiting";
       }
     }
+    return canDraw;
   } catch (e) {
-    console.error("Check can draw error:", e);
-    const adminStatusEl = document.getElementById("adminStatus");
-    if (adminStatusEl) {
-      adminStatusEl.innerText = "⚠️ Failed to check draw status: " + e.message;
-    }
+    console.error("Check draw error:", e);
+    return false;
   }
 }
+
+// Make checkCanDraw available globally
+window.checkCanDraw = checkCanDraw;
 
 // Add this function to check collected fees
 export async function checkCollectedFees() {
