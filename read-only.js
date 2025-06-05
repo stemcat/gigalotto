@@ -568,6 +568,8 @@ function updateLeaderboardFromData(
   const leaderboardEl = document.getElementById("leaderboard");
   if (!leaderboardEl) return;
 
+  console.log("Updating leaderboard with data:", topDepositors);
+
   let html = `
     <div class="leaderboard-header">
       <h3>Top Depositors</h3>
@@ -612,39 +614,75 @@ function updateLeaderboardFromData(
 
   html += `</div>`;
   leaderboardEl.innerHTML = html;
+
+  // Add CSS for leaderboard if not already added
+  if (!document.getElementById("leaderboard-styles")) {
+    const style = document.createElement("style");
+    style.id = "leaderboard-styles";
+    style.textContent = `
+      .leaderboard-address {
+        color: #00ffff;
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      
+      .leaderboard-address:hover {
+        color: #ff00ff;
+        text-decoration: underline;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 // Improved ENS resolution function
 async function resolveLeaderboardENSNames(topDepositors) {
   try {
-    console.log("Resolving ENS names for leaderboard...");
+    console.log("Resolving ENS names for leaderboard...", topDepositors);
 
-    // Use a public RPC endpoint that allows CORS
-    const provider = new ethers.JsonRpcProvider(
-      "https://eth-mainnet.g.alchemy.com/v2/demo"
-    );
+    if (!topDepositors || topDepositors.length === 0) {
+      console.log("No depositors to resolve ENS names for");
+      return;
+    }
+
+    // Use Cloudflare's public Ethereum gateway which allows CORS
+    const provider = new ethers.JsonRpcProvider("https://cloudflare-eth.com");
+
+    console.log("Created provider for ENS resolution:", provider);
+
+    // Add a small delay to ensure DOM is ready
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     for (let i = 0; i < topDepositors.length; i++) {
+      const address = topDepositors[i].address;
+      if (!address) continue;
+
       const addressElement = document.getElementById(
         `leaderboard-address-${i}`
       );
-      if (addressElement) {
-        const address = addressElement.getAttribute("data-address");
-        try {
-          console.log(`Trying to resolve ENS for ${address}...`);
-          // Try to resolve ENS name
-          const ensName = await provider.lookupAddress(address);
-          console.log(`ENS lookup result for ${address}:`, ensName);
+      if (!addressElement) {
+        console.log(`Element leaderboard-address-${i} not found`);
+        continue;
+      }
 
-          if (ensName) {
-            addressElement.innerText = ensName;
-            // Keep the link to Etherscan
-            addressElement.href = `https://sepolia.etherscan.io/address/${address}`;
-            console.log(`Set ENS name ${ensName} for address ${address}`);
-          }
-        } catch (error) {
-          console.log(`Could not resolve ENS for ${address}:`, error);
+      console.log(`Trying to resolve ENS for ${address}...`);
+
+      try {
+        // Try to resolve ENS name with explicit timeout
+        const ensPromise = provider.lookupAddress(address);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("ENS lookup timeout")), 3000)
+        );
+
+        const ensName = await Promise.race([ensPromise, timeoutPromise]);
+        console.log(`ENS lookup result for ${address}:`, ensName);
+
+        if (ensName) {
+          addressElement.innerText = ensName;
+          console.log(`Set ENS name ${ensName} for address ${address}`);
         }
+      } catch (error) {
+        console.log(`Could not resolve ENS for ${address}:`, error);
       }
     }
   } catch (error) {
@@ -652,53 +690,32 @@ async function resolveLeaderboardENSNames(topDepositors) {
   }
 }
 
-// Add CSS for leaderboard
-const style = document.createElement("style");
-style.textContent = `
-  .leaderboard-content {
-    max-height: 300px;
-    overflow-y: auto;
-    margin-top: 10px;
+// Make ENS resolution function available globally
+window.resolveLeaderboardENSNames = resolveLeaderboardENSNames;
+
+// Add a function to manually trigger ENS resolution
+window.refreshENSNames = function () {
+  const leaderboardEl = document.getElementById("leaderboard");
+  if (!leaderboardEl) return;
+
+  console.log("Manually refreshing ENS names...");
+
+  // Extract addresses from the DOM
+  const addresses = [];
+  for (let i = 0; i < 10; i++) {
+    const addressEl = document.getElementById(`leaderboard-address-${i}`);
+    if (addressEl) {
+      const address = addressEl.getAttribute("data-address");
+      if (address) {
+        addresses.push({ address });
+      }
+    }
   }
-  
-  .leaderboard-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 10px;
-    border-bottom: 1px solid #444;
+
+  if (addresses.length > 0) {
+    resolveLeaderboardENSNames(addresses);
   }
-  
-  .leaderboard-rank {
-    width: 30px;
-    text-align: center;
-    font-weight: bold;
-    color: #ffcc00;
-  }
-  
-  .leaderboard-address {
-    flex-grow: 1;
-    text-align: left;
-    margin: 0 10px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: #00ffff;
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-  
-  .leaderboard-address:hover {
-    color: #ff00ff;
-    text-decoration: underline;
-  }
-  
-  .leaderboard-amount {
-    text-align: right;
-    font-weight: bold;
-    color: #ffffff;
-  }
-`;
-document.head.appendChild(style);
+};
 
 // Filter entries by timeframe
 function filterEntriesByTimeframe(entries, timeframe) {

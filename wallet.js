@@ -283,13 +283,13 @@ export async function updateUI() {
       6
     )}...${userAccount.slice(-4)}`;
     document.getElementById("userDeposit").innerText =
-      ethers.formatEther(deposit) + " ETH";
+      ethers.formatEther(deposit); // Removed extra ETH
     document.getElementById("winChance").innerText = winChanceDisplay;
 
     // Update withdrawable amount if element exists
     const withdrawableEl = document.getElementById("withdrawableAmount");
     if (withdrawableEl) {
-      withdrawableEl.innerText = ethers.formatEther(withdrawable) + " ETH";
+      withdrawableEl.innerText = ethers.formatEther(withdrawable); // Removed extra ETH
     }
 
     // Show withdrawal section if there's something to withdraw
@@ -344,12 +344,13 @@ export async function checkWinnerAndDraw() {
           try {
             const feesWei = await contract.collectedFees();
             collectedFees = ethers.formatEther(feesWei);
+            console.log("Collected fees:", collectedFees, "ETH");
           } catch (feeError) {
             console.error("Error getting collected fees:", feeError);
           }
 
           adminDiv.innerHTML = `
-            <h3>Admin Controls</h3>
+            <h3>🔐 Admin Controls</h3>
             <div class="admin-info">
               <div class="admin-stat">
                 <span>Collected Fees:</span>
@@ -357,19 +358,11 @@ export async function checkWinnerAndDraw() {
               </div>
             </div>
             <div id="adminStatus">Checking draw status...</div>
-            <div class="admin-controls">
-              <div>
-                <button onclick="window.checkCanDraw()">Check Draw Status</button>
-                <button onclick="window.requestDraw()">Request Draw</button>
-                <button onclick="window.selectNewWinner()">Select New Winner</button>
-              </div>
-              <div>
-                <button onclick="window.withdrawFees()">Withdraw Fees</button>
-                <div class="fee-control">
-                  <input type="number" id="feeInput" min="0" max="10" value="2" placeholder="Fee %">
-                  <button onclick="window.setFee()">Set Fee</button>
-                </div>
-              </div>
+            <div class="admin-buttons">
+              <button id="checkDrawBtn" onclick="window.checkCanDraw()" class="admin-btn">Check Draw Status</button>
+              <button id="requestDrawBtn" onclick="window.requestDraw()" class="admin-btn">Request Draw</button>
+              <button id="selectNewWinnerBtn" onclick="window.selectNewWinner()" class="admin-btn">Select New Winner</button>
+              <button id="withdrawFeesBtn" onclick="window.withdrawFees()" class="admin-btn">Withdraw Fees (${collectedFees} ETH)</button>
             </div>
           `;
           dashboard.after(adminDiv);
@@ -387,7 +380,14 @@ export async function checkWinnerAndDraw() {
           try {
             const feesWei = await contract.collectedFees();
             const collectedFees = ethers.formatEther(feesWei);
+            console.log("Updated collected fees:", collectedFees, "ETH");
             collectedFeesElement.innerText = `${collectedFees} ETH`;
+
+            // Also update the withdraw fees button
+            const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
+            if (withdrawFeesBtn) {
+              withdrawFeesBtn.innerText = `Withdraw Fees (${collectedFees} ETH)`;
+            }
           } catch (feeError) {
             console.error("Error updating collected fees:", feeError);
           }
@@ -803,6 +803,18 @@ window.withdrawFees = async function () {
     await tx.wait();
     document.getElementById("status").innerText =
       "✅ Fees withdrawn successfully!";
+
+    // Update the admin section after withdrawal
+    const collectedFeesElement = document.getElementById("collectedFees");
+    if (collectedFeesElement) {
+      collectedFeesElement.innerText = "0 ETH";
+    }
+
+    const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
+    if (withdrawFeesBtn) {
+      withdrawFeesBtn.innerText = "Withdraw Fees (0 ETH)";
+    }
+
     updateUI();
   } catch (e) {
     console.error("Withdraw fees error:", e);
