@@ -187,151 +187,106 @@ export async function loadJackpotInfo() {
       }),
     });
 
-    console.log("Subgraph response status:", response.status);
-
     if (response.ok) {
-      const data = await response.json();
-      console.log("Subgraph data received:", data);
+      const responseData = await response.json();
+      console.log("Subgraph response status:", response.status);
+      console.log("Subgraph data received:", responseData);
 
-      // Check if we have any data at all
-      if (
-        data.data &&
-        (data.data.contract ||
-          (data.data.newDeposits && data.data.newDeposits.length > 0))
-      ) {
-        let totalPoolEth = "0";
-        let jackpotUsdFormatted = "0.00";
-        let targetUsdFormatted = "2,200,000.00";
-        let last24hUsdFormatted = "0.00";
-        let percentComplete = 0;
+      if (responseData && responseData.data) {
+        const { contract, newDeposits } = responseData.data;
 
-        // First check if we have contract data
-        if (data.data.contract) {
-          const contractData = data.data.contract;
-
-          // Convert values to ETH and format
-          totalPoolEth = ethers.formatEther(contractData.totalPool);
-          jackpotUsdFormatted = (Number(contractData.jackpotUsd) / 1e8).toFixed(
-            2
-          );
-          targetUsdFormatted = (Number(contractData.targetUsd) / 1e8).toFixed(
-            2
-          );
-          last24hUsdFormatted = (
-            Number(contractData.last24hDepositUsd) / 1e8
+        if (contract) {
+          // Format values
+          const totalPoolEth = ethers.formatEther(contract.totalPool);
+          const jackpotUsdFormatted = (
+            Number(contract.jackpotUsd) / 1e8
           ).toFixed(2);
-          percentComplete =
-            (Number(contractData.jackpotUsd) * 100) /
-            Number(contractData.targetUsd);
+          const targetUsdFormatted = (Number(contract.targetUsd) / 1e8).toFixed(
+            2
+          );
+          const last24hUsdFormatted = (
+            Number(contract.last24hDepositUsd) / 1e8
+          ).toFixed(2);
 
-          // Update UI with contract data
+          // Calculate percentage
+          const percentComplete =
+            (Number(contract.jackpotUsd) * 100) / Number(contract.targetUsd);
+
+          // Update UI with basic data
           updateUIWithBasicData(
             totalPoolEth,
             jackpotUsdFormatted,
             last24hUsdFormatted,
             percentComplete
           );
-        }
 
-        // Process deposits for leaderboard
-        if (data.data.newDeposits && data.data.newDeposits.length > 0) {
-          const deposits = data.data.newDeposits;
+          // Process deposits for leaderboard
+          if (newDeposits && newDeposits.length > 0) {
+            const deposits = newDeposits;
 
-          // Process deposits to get top depositors
-          let topDepositors = {};
+            // Group by depositor
+            const depositorMap = {};
+            deposits.forEach((deposit) => {
+              const address = deposit.depositor;
+              const amount = ethers.formatEther(deposit.amount);
 
-          for (const deposit of deposits) {
-            const depositor = deposit.depositor.toLowerCase();
-            if (!topDepositors[depositor]) {
-              topDepositors[depositor] = 0;
-            }
-            topDepositors[depositor] += parseFloat(
-              ethers.formatEther(deposit.amount)
-            );
+              if (!depositorMap[address]) {
+                depositorMap[address] = {
+                  address,
+                  amount: 0,
+                  timestamp: Number(deposit.blockTimestamp),
+                };
+              }
+
+              depositorMap[address].amount += parseFloat(amount);
+            });
+
+            // Convert to array and sort
+            const leaderboardData = Object.values(depositorMap)
+              .sort((a, b) => b.amount - a.amount)
+              .map((entry) => ({
+                ...entry,
+                amount: entry.amount.toFixed(6),
+              }));
+
+            // Update leaderboard
+            updateLeaderboardFromData(leaderboardData.slice(0, 10));
+
+            // Cache all deposits for timeframe filtering
+            const allDeposits = deposits.map((d) => ({
+              depositor: d.depositor,
+              amount: ethers.formatEther(d.amount),
+              timestamp: Number(d.blockTimestamp),
+            }));
+
+            // Cache the data
+            const cacheData = {
+              timestamp: Date.now(),
+              totalPoolEth,
+              jackpotUsdFormatted,
+              targetUsdFormatted,
+              last24hUsdFormatted,
+              percentComplete,
+              topDepositors: leaderboardData.slice(0, 10),
+              allDeposits,
+            };
+
+            localStorage.setItem("contractData", JSON.stringify(cacheData));
           }
 
-          // Convert to array for leaderboard
-          const leaderboardData = Object.entries(topDepositors).map(
-            ([address, amount]) => ({
-              address: address,
-              amount: amount.toString(),
-            })
-          );
+          // Hide error message if it was showing
+          showDataError(false);
 
-          // Sort by amount descending
-          leaderboardData.sort(
-            (a, b) => parseFloat(b.amount) - parseFloat(a.amount)
-          );
-
-          // Update leaderboard
-          updateLeaderboardFromData(leaderboardData.slice(0, 10));
-
-          // Cache all deposits for timeframe filtering
-          const allDeposits = deposits.map((d) => ({
-            depositor: d.depositor,
-            amount: ethers.formatEther(d.amount),
-            timestamp: Number(d.blockTimestamp),
-          }));
-
-          // Cache the data
-          const cacheData = {
-            timestamp: Date.now(),
-            totalPoolEth,
-            jackpotUsdFormatted,
-            targetUsdFormatted,
-            last24hUsdFormatted,
-            percentComplete,
-            topDepositors: leaderboardData.slice(0, 10),
-            allDeposits,
-          };
-
-          localStorage.setItem("contractData", JSON.stringify(cacheData));
+          return true;
         }
-
-        // Hide error message if it was showing
-        showDataError(false);
-
-        return;
       }
     }
   } catch (e) {
     console.error("Error fetching from subgraph:", e);
   }
 
-  // If we get here, the subgraph failed - try to use cached data
-  const cachedFallbackData = localStorage.getItem("contractData");
-  if (cachedFallbackData) {
-    try {
-      const data = JSON.parse(cachedFallbackData);
-      if (Date.now() - data.timestamp < 5 * 60 * 1000) {
-        // Cache valid for 5 minutes
-        console.log("Using cached data from", new Date(data.timestamp));
-        updateUIWithBasicData(
-          data.totalPoolEth,
-          data.jackpotUsdFormatted,
-          data.last24hUsdFormatted,
-          data.percentComplete
-        );
-
-        if (data.topDepositors && data.topDepositors.length > 0) {
-          updateLeaderboardFromData(data.topDepositors);
-        }
-
-        // Try to refresh in background
-        setTimeout(() => {
-          tryDirectContractCall();
-        }, 100);
-
-        return;
-      }
-    } catch (e) {
-      console.error("Error parsing cached data:", e);
-    }
-  }
-
-  // If we get here, both subgraph and cache failed - try direct contract call
-  console.log("Subgraph and cache failed, trying direct contract call");
-  await tryDirectContractCall();
+  // If we get here, subgraph failed, try direct contract call
+  return await tryDirectContractCall();
 }
 
 // Improved direct contract call with debug option

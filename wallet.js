@@ -60,10 +60,9 @@ export async function initWeb3() {
         "⏳ Switching to Sepolia testnet...";
 
       try {
-        // Try to switch to Sepolia
         await window.ethereum.request({
           method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0xaa36a7" }], // Sepolia chain ID
+          params: [{ chainId: "0xaa36a7" }],
         });
       } catch (switchError) {
         // This error code indicates that the chain has not been added to MetaMask
@@ -86,26 +85,18 @@ export async function initWeb3() {
               ],
             });
           } catch (addError) {
-            console.error("Failed to add Sepolia network:", addError);
+            console.error("Error adding Sepolia network:", addError);
             document.getElementById("status").innerText =
-              "⚠️ Failed to add Sepolia network";
+              "⚠️ Failed to add Sepolia network.";
             return false;
           }
         } else {
-          console.error("Failed to switch to Sepolia:", switchError);
+          console.error("Error switching to Sepolia:", switchError);
           document.getElementById("status").innerText =
-            "⚠️ Failed to switch to Sepolia testnet";
+            "⚠️ Failed to switch to Sepolia.";
           return false;
         }
       }
-    }
-
-    // Get accounts
-    const accounts = await window.ethereum.request({ method: "eth_accounts" });
-    if (accounts.length === 0) {
-      // Don't auto-request accounts, just return false
-      document.getElementById("status").innerText = "Ready to connect";
-      return false;
     }
 
     provider = new ethers.BrowserProvider(window.ethereum);
@@ -120,8 +111,16 @@ export async function initWeb3() {
       "✅ Wallet connected to Sepolia!";
     document.getElementById("userDashboard").style.display = "block";
 
-    // Important: Change the button text but keep the original click handler
-    document.getElementById("connectBtn").innerText = "🪙 Deposit ETH";
+    // Change connect button to deposit button
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) {
+      connectBtn.style.display = "none";
+    }
+
+    const depositBtn = document.getElementById("depositBtn");
+    if (depositBtn) {
+      depositBtn.style.display = "inline-block";
+    }
 
     await updateUI();
     return true;
@@ -493,53 +492,22 @@ async function updateUserDashboard() {
   }
 }
 
-// Connect wallet with terms check
+// Connect wallet
 export async function connectWallet() {
-  console.log("Connect wallet function called");
-
-  // Check if terms were already accepted
-  const termsAccepted = localStorage.getItem("termsAccepted") === "true";
-
-  if (!termsAccepted) {
-    // Show terms modal
-    const termsModal = document.getElementById("termsModal");
-    if (termsModal?.showModal) {
-      termsModal.showModal();
-    } else {
-      console.error("Terms modal not found or showModal not supported");
-      document.getElementById("status").innerText =
-        "⚠️ Browser doesn't support dialog element. Please use a modern browser.";
-    }
-    return false;
-  }
-
-  // Continue with wallet connection
   try {
     if (!window.ethereum) {
       document.getElementById("status").innerText =
-        "⚠️ MetaMask not detected. Please install MetaMask and refresh.";
+        "⚠️ Please install MetaMask.";
       return false;
     }
 
-    document.getElementById("status").innerText = "⏳ Requesting accounts...";
+    // Request accounts
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
 
-    // Request accounts with explicit error handling
-    try {
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      });
-      console.log("Accounts after request:", accounts);
-
-      if (accounts.length === 0) {
-        document.getElementById("status").innerText =
-          "⚠️ No accounts authorized. Please unlock MetaMask and try again.";
-        return false;
-      }
-    } catch (requestError) {
-      console.error("Account request error:", requestError);
-      document.getElementById("status").innerText =
-        "⚠️ Failed to connect: " +
-        (requestError.message || "User rejected request");
+    if (accounts.length === 0) {
+      document.getElementById("status").innerText = "⚠️ No accounts found.";
       return false;
     }
 
