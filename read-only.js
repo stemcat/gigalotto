@@ -616,7 +616,7 @@ function updateLeaderboardFromData(
   leaderboardEl.innerHTML = html;
 }
 
-// Fix ENS name resolution with a CORS-friendly approach
+// Fix ENS name resolution to use Sepolia testnet
 async function resolveENSNames(topDepositors) {
   if (!topDepositors || topDepositors.length === 0) {
     console.log("No depositors to resolve ENS names for");
@@ -626,10 +626,38 @@ async function resolveENSNames(topDepositors) {
   console.log("Resolving ENS names for:", topDepositors);
 
   try {
-    // Use Cloudflare's public Ethereum gateway which supports CORS
-    const provider = new ethers.JsonRpcProvider("https://cloudflare-eth.com");
+    // Use Sepolia testnet RPC endpoints that support CORS
+    const rpcEndpoints = [
+      "https://eth-sepolia.public.blastapi.io",
+      "https://rpc.sepolia.org",
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
+    ];
 
-    console.log("Created provider for ENS resolution using Cloudflare gateway");
+    let provider;
+    let connected = false;
+
+    // Try each endpoint until one works
+    for (const endpoint of rpcEndpoints) {
+      try {
+        console.log(`Trying Sepolia RPC endpoint for ENS: ${endpoint}`);
+        provider = new ethers.JsonRpcProvider(endpoint);
+
+        // Test the connection
+        await provider.getBlockNumber();
+        console.log(`Connected to Sepolia RPC for ENS resolution: ${endpoint}`);
+
+        connected = true;
+        break;
+      } catch (rpcError) {
+        console.error(`Failed to connect to ${endpoint} for ENS:`, rpcError);
+      }
+    }
+
+    if (!connected) {
+      throw new Error(
+        "Failed to connect to any Sepolia RPC endpoint for ENS resolution"
+      );
+    }
 
     // Process each depositor
     for (let i = 0; i < topDepositors.length; i++) {
@@ -641,56 +669,53 @@ async function resolveENSNames(topDepositors) {
       );
       if (!addressElement) continue;
 
-      console.log(`Looking up ENS for ${address}`);
+      console.log(`Looking up ENS for ${address} on Sepolia`);
 
       try {
+        // For Sepolia, we need to use a different approach since ENS on testnets works differently
+        // First check if the address has a .eth name on Sepolia
         const ensName = await provider.lookupAddress(address);
 
         if (ensName) {
-          console.log(`Found ENS name for ${address}: ${ensName}`);
+          console.log(`Found ENS name for ${address} on Sepolia: ${ensName}`);
           addressElement.innerText = ensName;
-          // Keep the link to Etherscan
           addressElement.title = address;
         } else {
-          console.log(`No ENS name found for ${address}`);
+          // If no ENS name on Sepolia, try to check if this address has a .eth name on mainnet
+          // This is just for display purposes since many users have ENS names on mainnet
+          try {
+            const mainnetProvider = new ethers.JsonRpcProvider(
+              "https://cloudflare-eth.com"
+            );
+            const mainnetEnsName = await mainnetProvider.lookupAddress(address);
+
+            if (mainnetEnsName) {
+              console.log(
+                `Found mainnet ENS name for ${address}: ${mainnetEnsName}`
+              );
+              addressElement.innerText = mainnetEnsName;
+              addressElement.title = address + " (Mainnet ENS)";
+            } else {
+              console.log(`No ENS name found for ${address} on any network`);
+            }
+          } catch (mainnetError) {
+            console.error(
+              `Error checking mainnet ENS for ${address}:`,
+              mainnetError
+            );
+          }
         }
       } catch (error) {
-        console.error(`Error resolving ENS for ${address}:`, error);
-
-        // Try alternative method if first one fails
-        try {
-          // Use ENS Public Resolver directly
-          const ensResolver = new ethers.Contract(
-            "0x4976fb03C32e5B8cfe2b6cCB31c09Ba78EBaBa41", // ENS Public Resolver
-            ["function name(bytes32 node) view returns (string)"],
-            provider
-          );
-
-          // Convert address to namehash format
-          const node = ethers.namehash(
-            `${address.toLowerCase().substring(2)}.addr.reverse`
-          );
-          const name = await ensResolver.name(node);
-
-          if (name && name !== "") {
-            console.log(`Found ENS name via resolver for ${address}: ${name}`);
-            addressElement.innerText = name;
-            addressElement.title = address;
-          }
-        } catch (resolverError) {
-          console.log(
-            `Resolver method also failed for ${address}:`,
-            resolverError
-          );
-        }
+        console.error(`Error resolving ENS for ${address} on Sepolia:`, error);
       }
     }
   } catch (error) {
     console.error("Error setting up ENS resolution:", error);
 
-    // If all else fails, try a public ENS API
+    // Fallback to a direct API call if available
     try {
-      console.log("Trying public ENS API as fallback");
+      // This is a placeholder - replace with an actual Sepolia ENS API if available
+      console.log("Trying API fallback for ENS resolution");
 
       for (let i = 0; i < topDepositors.length; i++) {
         const address = topDepositors[i].address;
@@ -701,14 +726,15 @@ async function resolveENSNames(topDepositors) {
         );
         if (!addressElement) continue;
 
-        // Try using a public API that supports CORS
+        // Try using a Sepolia-specific API if available
         try {
+          // Note: You would need to replace this with an actual Sepolia ENS API
           const response = await fetch(
-            `https://api.ensideas.com/ens/resolve/${address}`,
+            `https://sepolia-api.example.com/ens/resolve/${address}`,
             { mode: "cors" }
-          );
+          ).catch(() => null); // Catch fetch errors
 
-          if (response.ok) {
+          if (response && response.ok) {
             const data = await response.json();
             if (data && data.name) {
               console.log(`API found ENS name for ${address}: ${data.name}`);
@@ -717,7 +743,7 @@ async function resolveENSNames(topDepositors) {
             }
           }
         } catch (apiError) {
-          console.log(`API lookup failed for ${address}:`, apiError);
+          // Silently fail for API errors
         }
       }
     } catch (apiError) {
