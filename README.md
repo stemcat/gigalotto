@@ -4,13 +4,12 @@
 
 - Subgraph Studio: https://thegraph.com/studio/subgraph/gigalottosepolia
 - Query URL: https://api.studio.thegraph.com/query/113076/gigalottosepolia/version/latest
-- Deployment ID (v0.0.1): QmbmcDFq2182zQCPpHzQURZrvJ1mCKbGtZo4ZCdMN8hE1h
 
 ### Example Query
 
 ```graphql
 {
-  contract(id: "0x8366a6f4adbb6d2d9fdc4cd5b9b0ac5f12d96df1") {
+  contract(id: "0xC51569C3877Db750494adA6d1886a9765ab29dD5") {
     totalPool
     jackpotUsd
     targetUsd
@@ -18,10 +17,21 @@
     entries(first: 20, orderBy: amount, orderDirection: desc) {
       user
       amount
+      timestamp
     }
+    winner {
+      id
+    }
+    winnerSelectedAt
   }
 }
 ```
+
+## Features
+
+- Winner selection expiration tracking
+- Automatic reselection of winners after claim period expires
+- Full event tracking for all contract interactions
 
 ## Contract Information
 

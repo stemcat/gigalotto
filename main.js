@@ -2,7 +2,11 @@ import {
   initWeb3,
   connectAndDeposit,
   withdrawWinnings,
+  withdraw,
   requestDraw,
+  selectNewWinner,
+  checkExpiredWinner,
+  withdrawFees,
   getUserAccount,
   checkIfConnected,
   connectWallet,
@@ -133,7 +137,7 @@ window.changeTimeframe = function (timeframe) {
 
     // Update leaderboard with filtered data
     if (typeof updateLeaderboardFromData === "function") {
-      updateLeaderboardFromData(leaderboardData.slice(0, 10));
+      updateLeaderboardFromData(leaderboardData.slice(0, 10), timeframe);
     } else {
       console.error("updateLeaderboardFromData function not available");
     }
@@ -142,82 +146,57 @@ window.changeTimeframe = function (timeframe) {
   }
 };
 
-// Initialize on page load
+// Make sure all admin buttons are properly set up
 window.addEventListener("load", async () => {
-  console.log("Page loaded, initializing...");
+  // Initialize web3
+  await initWeb3();
 
-  // Clear any stale cache data
-  if (localStorage.getItem("contractData")) {
-    try {
-      const data = JSON.parse(localStorage.getItem("contractData"));
-      // If the data is older than 1 hour, clear it
-      if (Date.now() - data.timestamp > 60 * 60 * 1000) {
-        console.log("Clearing stale cache data");
-        localStorage.removeItem("contractData");
-      }
-    } catch (e) {
-      console.error("Error parsing cached data:", e);
-      localStorage.removeItem("contractData");
-    }
-  }
-
-  // Load basic jackpot info for all users using the public API approach
-  setupAutoRefresh();
-  console.log("Auto refresh setup complete");
+  // Check if already connected
+  await checkIfConnected();
 
   // Set up account change listeners
   setupAccountChangeListeners();
 
-  // Only try to check connection if MetaMask is available
-  if (window.ethereum) {
-    console.log("MetaMask detected, checking connection...");
-    await checkIfConnected();
-  } else {
-    console.log("MetaMask not detected");
-    document.getElementById("status").innerText =
-      "⚠️ Please install MetaMask to participate";
+  // Set up auto-refresh for jackpot info
+  setupAutoRefresh();
+
+  // Set up connect/deposit button
+  document
+    .getElementById("connectBtn")
+    .addEventListener("click", connectAndDeposit);
+
+  // Set up withdraw button
+  document
+    .getElementById("userWithdrawBtn")
+    .addEventListener("click", withdraw);
+
+  // Set up admin buttons if they exist
+  const requestDrawBtn = document.getElementById("requestDrawBtn");
+  if (requestDrawBtn) {
+    requestDrawBtn.addEventListener("click", requestDraw);
   }
 
-  // Set up connect button
-  document.getElementById("connectBtn").addEventListener("click", async () => {
-    try {
-      // Check if MetaMask is installed
-      if (!window.ethereum) {
+  const selectNewWinnerBtn = document.getElementById("selectNewWinnerBtn");
+  if (selectNewWinnerBtn) {
+    selectNewWinnerBtn.addEventListener("click", async () => {
+      const canSelectNew = await checkExpiredWinner();
+      if (canSelectNew) {
+        selectNewWinner();
+      } else {
         document.getElementById("status").innerText =
-          "⚠️ Please install MetaMask to participate";
-        // Maybe open MetaMask download page
-        if (confirm("MetaMask is required. Would you like to install it?")) {
-          window.open("https://metamask.io/download/", "_blank");
-        }
-        return;
+          "⚠️ Current winner can still claim or no winner selected";
       }
+    });
+  }
 
-      // If we're not connected yet, connect first
-      if (!getUserAccount()) {
-        const connected = await connectWallet();
-        if (!connected) return;
-      }
+  const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
+  if (withdrawFeesBtn) {
+    withdrawFeesBtn.addEventListener("click", withdrawFees);
+  }
 
-      // After connection (or if already connected), check for deposit amount
-      const ethAmount = document.getElementById("ethAmount").value;
-      if (ethAmount && parseFloat(ethAmount) >= 0.001) {
-        await connectAndDeposit();
-      } else if (getUserAccount()) {
-        // If we're connected but no amount entered, prompt for amount
-        document.getElementById("status").innerText =
-          "⚠️ Enter a valid ETH amount. (min: 0.001)";
-      }
-    } catch (e) {
-      console.error("Connection/deposit error:", e);
-      document.getElementById("status").innerText = "⚠️ Error: " + e.message;
-    }
-  });
-
-  // Set up other buttons
-  document
-    .getElementById("withdrawBtn")
-    .addEventListener("click", withdrawWinnings);
-  document
-    .getElementById("requestDrawBtn")
-    .addEventListener("click", requestDraw);
+  // Set up winner claim button
+  const winnerClaimBtn = document.getElementById("winnerClaimBtn");
+  if (winnerClaimBtn) {
+    winnerClaimBtn.addEventListener("click", withdrawWinnings);
+  }
 });

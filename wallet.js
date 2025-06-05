@@ -1,19 +1,27 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details
-const contractAddress = "0xE5aB5F5cb61FeE8650B5Fe1c10Fe8E20961b2081"; // Updated contract address
+const contractAddress = "0xC51569C3877Db750494adA6d1886a9765ab29dD5"; // Updated contract address
 const abi = [
   "function deposit() external payable",
   "function withdraw() external",
+  "function withdrawIfWinner() external",
+  "function selectNewWinner() external",
   "function requestDraw() external",
+  "function withdrawFees() external",
   "function userDeposits(address) view returns (uint256)",
+  "function withdrawableAmounts(address) view returns (uint256)",
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
   "function TARGET_USD() view returns (uint256)",
   "function canDraw() view returns (bool)",
   "function winner() view returns (address)",
+  "function winnerSelectedAt() view returns (uint256)",
+  "function WINNER_CLAIM_PERIOD() view returns (uint256)",
+  "function owner() view returns (address)",
   "function getEntriesCount() view returns (uint256)",
   "function getEntry(uint256) view returns (address, uint256)",
+  "event WinnerSelectionExpired(address indexed previousWinner)",
 ];
 
 // Global variables
@@ -565,16 +573,32 @@ function filterEntriesByTimeframe(entries, timeframe) {
 export function setupAccountChangeListeners() {
   if (window.ethereum) {
     window.ethereum.on("accountsChanged", (accounts) => {
-      console.log("Account changed:", accounts);
-      if (accounts.length === 0) {
-        // User disconnected their wallet
-        userAccount = null;
-        document.getElementById("connectBtn").innerText = "🦊 Connect Wallet";
-        document.getElementById("userDashboard").style.display = "none";
-        document.getElementById("status").innerText = "Wallet disconnected";
+      console.log("Account changed:", accounts[0]);
+      if (accounts.length > 0) {
+        userAccount = accounts[0];
+        document.getElementById("connectBtn").innerText = "Deposit";
+        document.getElementById("status").innerText =
+          "✅ Connected: " + shortenAddress(userAccount);
+
+        // Update user dashboard
+        updateUserDashboard();
+
+        // Check if admin and show/hide admin section
+        const adminSection = document.getElementById("adminSection");
+        if (adminSection) {
+          adminSection.style.display = isAdmin(userAccount) ? "block" : "none";
+        }
       } else {
-        // User switched accounts, reinitialize
-        initWeb3();
+        userAccount = null;
+        document.getElementById("connectBtn").innerText = "Connect Wallet";
+        document.getElementById("status").innerText = "Not connected";
+        document.getElementById("userDashboard").style.display = "none";
+
+        // Hide admin section
+        const adminSection = document.getElementById("adminSection");
+        if (adminSection) {
+          adminSection.style.display = "none";
+        }
       }
     });
 
@@ -582,5 +606,180 @@ export function setupAccountChangeListeners() {
       // Chain changed, reload the page
       window.location.reload();
     });
+  }
+}
+
+// Check if user is admin
+export function isAdmin(address) {
+  const adminAddress = "0xe9D99D4380e80DE290D10F741F77728954fe2d81";
+  return address && address.toLowerCase() === adminAddress.toLowerCase();
+}
+
+// Update checkIfConnected to also check for admin
+export async function checkIfConnected() {
+  try {
+    const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    if (accounts.length > 0) {
+      userAccount = accounts[0];
+      console.log("Already connected:", userAccount);
+      document.getElementById("connectBtn").innerText = "Deposit";
+      document.getElementById("status").innerText =
+        "✅ Connected: " + shortenAddress(userAccount);
+
+      // Update user dashboard
+      updateUserDashboard();
+
+      // Check if admin and show admin section
+      if (isAdmin(userAccount)) {
+        const adminSection = document.getElementById("adminSection");
+        if (adminSection) {
+          adminSection.style.display = "block";
+        }
+      }
+
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("Error checking connection:", e);
+    return false;
+  }
+}
+
+// Update connectWallet to also check for admin
+export async function connectWallet() {
+  try {
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+
+    if (accounts.length > 0) {
+      userAccount = accounts[0];
+      console.log("Connected:", userAccount);
+      document.getElementById("connectBtn").innerText = "Deposit";
+      document.getElementById("status").innerText =
+        "✅ Connected: " + shortenAddress(userAccount);
+
+      // Update user dashboard
+      updateUserDashboard();
+
+      // Check if admin and show admin section
+      if (isAdmin(userAccount)) {
+        const adminSection = document.getElementById("adminSection");
+        if (adminSection) {
+          adminSection.style.display = "block";
+        }
+      }
+
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("Connection error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Connection failed: " + e.message;
+    return false;
+  }
+}
+
+// Add function to withdraw fees
+export async function withdrawFees() {
+  try {
+    document.getElementById("status").innerText = "⏳ Withdrawing fees...";
+    const tx = await contract.withdrawFees();
+    await tx.wait();
+    document.getElementById("status").innerText =
+      "✅ Fees withdrawn successfully!";
+  } catch (e) {
+    console.error("Withdraw fees error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Withdraw fees failed: " + e.message;
+  }
+}
+
+// Update user dashboard
+async function updateUserDashboard() {
+  const userAccount = getUserAccount();
+  if (!userAccount) return;
+
+  try {
+    const userDeposit = await contract.userDeposits(userAccount);
+    const withdrawableAmount = await contract.withdrawableAmounts(userAccount);
+
+    // Format values
+    const formattedDeposit = ethers.formatEther(userDeposit);
+    const formattedWithdrawable = ethers.formatEther(withdrawableAmount);
+
+    // Update UI
+    document.getElementById("userDeposit").innerText = formattedDeposit;
+    document.getElementById("withdrawableAmount").innerText =
+      formattedWithdrawable;
+
+    // Show/hide withdraw button based on withdrawable amount
+    const withdrawBtn = document.getElementById("withdrawBtn");
+    if (withdrawBtn) {
+      if (parseFloat(formattedWithdrawable) > 0) {
+        withdrawBtn.style.display = "inline-block";
+      } else {
+        withdrawBtn.style.display = "none";
+      }
+    }
+
+    // Show user dashboard
+    document.getElementById("userDashboard").style.display = "block";
+  } catch (e) {
+    console.error("Error updating user dashboard:", e);
+  }
+}
+
+// Add function to select new winner
+export async function selectNewWinner() {
+  try {
+    document.getElementById("status").innerText = "⏳ Selecting new winner...";
+    const tx = await contract.selectNewWinner();
+    await tx.wait();
+    document.getElementById("status").innerText =
+      "✅ New winner selection initiated!";
+  } catch (e) {
+    console.error("Select new winner error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Select new winner failed: " + e.message;
+  }
+}
+
+// Add function to check if a new winner can be selected
+export async function checkExpiredWinner() {
+  try {
+    const winner = await contract.winner();
+    if (winner === "0x0000000000000000000000000000000000000000") {
+      return false;
+    }
+
+    const winnerSelectedAt = await contract.winnerSelectedAt();
+    const claimPeriod = await contract.WINNER_CLAIM_PERIOD();
+    const now = Math.floor(Date.now() / 1000);
+
+    return now > Number(winnerSelectedAt) + Number(claimPeriod);
+  } catch (e) {
+    console.error("Check expired winner error:", e);
+    return false;
+  }
+}
+
+// Update withdraw function to handle amount parameter
+export async function withdraw() {
+  try {
+    document.getElementById("status").innerText = "⏳ Withdrawing funds...";
+    const tx = await contract.withdraw();
+    await tx.wait();
+    document.getElementById("status").innerText =
+      "✅ Funds withdrawn successfully!";
+
+    // Update user dashboard
+    updateUserDashboard();
+  } catch (e) {
+    console.error("Withdraw error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Withdraw failed: " + e.message;
   }
 }

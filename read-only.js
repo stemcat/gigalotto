@@ -1,7 +1,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details
-const contractAddress = "0xE5aB5F5cb61FeE8650B5Fe1c10Fe8E20961b2081"; // Your new contract address
+const contractAddress = "0xC51569C3877Db750494adA6d1886a9765ab29dD5"; // Updated contract address
 const abi = [
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
@@ -404,19 +404,28 @@ function useCachedDataIfAvailable() {
 }
 
 // Update leaderboard from data
-async function updateLeaderboardFromData(topDepositors) {
+async function updateLeaderboardFromData(
+  topDepositors,
+  selectedTimeframe = "allTime"
+) {
   const leaderboardEl = document.getElementById("leaderboard");
   if (!leaderboardEl) return;
 
   let html = "<h3>🏆 TOP DEPOSITORS</h3>";
 
-  // Add timeframe selector
+  // Add timeframe selector with the correct selection
   html += `
     <div class="timeframe-selector">
       <select id="timeframeSelect" onchange="window.changeTimeframe(this.value)">
-        <option value="allTime" selected>All Time</option>
-        <option value="weekly">This Week</option>
-        <option value="daily">Today</option>
+        <option value="allTime" ${
+          selectedTimeframe === "allTime" ? "selected" : ""
+        }>All Time</option>
+        <option value="weekly" ${
+          selectedTimeframe === "weekly" ? "selected" : ""
+        }>This Week</option>
+        <option value="daily" ${
+          selectedTimeframe === "daily" ? "selected" : ""
+        }>Today</option>
       </select>
     </div>
   `;
@@ -430,12 +439,14 @@ async function updateLeaderboardFromData(topDepositors) {
         0,
         6
       )}...${depositor.address.substring(38)}`;
+      const etherscanUrl = `https://sepolia.etherscan.io/address/${depositor.address}`;
+
       html += `
         <div class="leaderboard-entry">
           <span class="rank">${index + 1}</span>
-          <span class="address" id="leaderboard-address-${index}" data-address="${
+          <a href="${etherscanUrl}" target="_blank" class="address" id="leaderboard-address-${index}" data-address="${
         depositor.address
-      }">${shortAddress}</span>
+      }">${shortAddress}</a>
           <span class="amount">${parseFloat(depositor.amount || 0).toFixed(
             4
           )} ETH</span>
@@ -475,6 +486,8 @@ async function resolveLeaderboardENSNames(topDepositors) {
           const ensName = await provider.lookupAddress(address);
           if (ensName) {
             addressElement.innerText = ensName;
+            // Keep the link to Etherscan
+            addressElement.href = `https://sepolia.etherscan.io/address/${address}`;
           }
         } catch (error) {
           console.log(`Could not resolve ENS for ${address}:`, error);
@@ -563,3 +576,35 @@ export function clearCache() {
 
 // Make updateLeaderboardFromData available globally
 window.updateLeaderboardFromData = updateLeaderboardFromData;
+
+// Check if user is the admin
+function isAdmin(address) {
+  const adminAddress = "0xe9D99D4380e80DE290D10F741F77728954fe2d81";
+  return address && address.toLowerCase() === adminAddress.toLowerCase();
+}
+
+// Update user info and show/hide admin section
+async function updateUserInfo() {
+  const userAccount = getUserAccount();
+  if (!userAccount) {
+    document.getElementById("userDashboard").style.display = "none";
+    document.getElementById("adminSection").style.display = "none";
+    return;
+  }
+
+  // Update user dashboard
+  updateUserDashboard();
+
+  // Check if user is admin and show admin section
+  if (isAdmin(userAccount)) {
+    const adminSection = document.getElementById("adminSection");
+    if (adminSection) {
+      adminSection.style.display = "block";
+    }
+  } else {
+    const adminSection = document.getElementById("adminSection");
+    if (adminSection) {
+      adminSection.style.display = "none";
+    }
+  }
+}
