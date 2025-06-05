@@ -616,7 +616,7 @@ function updateLeaderboardFromData(
   leaderboardEl.innerHTML = html;
 }
 
-// Completely rewritten ENS resolution function
+// Fix ENS name resolution with a CORS-friendly approach
 async function resolveENSNames(topDepositors) {
   if (!topDepositors || topDepositors.length === 0) {
     console.log("No depositors to resolve ENS names for");
@@ -626,24 +626,14 @@ async function resolveENSNames(topDepositors) {
   console.log("Resolving ENS names for:", topDepositors);
 
   try {
-    // Instead of using a direct provider which causes CORS issues,
-    // we'll use a hardcoded list of known ENS names for common addresses
-    // This is a workaround since we can't make direct RPC calls due to CORS
-    const knownENS = {
-      // Add any known ENS mappings here
-      "0xe9d99d4380e80de290d10f741f77728954fe2d81": "vitalik.eth",
-      "0xd8da6bf26964af9d7eed9e03e53415d37aa96045": "vitalik.eth",
-      "0xab5801a7d398351b8be11c439e05c5b3259aec9b": "vitalik.eth",
-      "0x220866b1a2219f40e72f5c628b65d54268ca3a9d": "gavin.eth",
-      "0x1db3439a222c519ab44bb1144fc28167b4fa6ee6": "vbuterin.eth",
-      // Add more mappings as needed
-    };
+    // Use Cloudflare's public Ethereum gateway which supports CORS
+    const provider = new ethers.JsonRpcProvider("https://cloudflare-eth.com");
 
-    console.log("Using local ENS resolution database");
+    console.log("Created provider for ENS resolution using Cloudflare gateway");
 
     // Process each depositor
     for (let i = 0; i < topDepositors.length; i++) {
-      const address = topDepositors[i].address.toLowerCase();
+      const address = topDepositors[i].address;
       if (!address) continue;
 
       const addressElement = document.getElementById(
@@ -653,21 +643,69 @@ async function resolveENSNames(topDepositors) {
 
       console.log(`Looking up ENS for ${address}`);
 
-      // Check if we have a known ENS name for this address
-      const ensName = knownENS[address];
+      try {
+        const ensName = await provider.lookupAddress(address);
 
-      if (ensName) {
-        console.log(`Found ENS name for ${address}: ${ensName}`);
-        addressElement.innerText = ensName;
-        // Keep the link to Etherscan
-        addressElement.title = address;
-      } else {
-        // If we don't have a known ENS name, try to fetch from a CORS-friendly API
+        if (ensName) {
+          console.log(`Found ENS name for ${address}: ${ensName}`);
+          addressElement.innerText = ensName;
+          // Keep the link to Etherscan
+          addressElement.title = address;
+        } else {
+          console.log(`No ENS name found for ${address}`);
+        }
+      } catch (error) {
+        console.error(`Error resolving ENS for ${address}:`, error);
+
+        // Try alternative method if first one fails
         try {
-          // Use a public CORS-friendly API that can resolve ENS names
-          // This is a placeholder - you would need to replace with an actual working API
+          // Use ENS Public Resolver directly
+          const ensResolver = new ethers.Contract(
+            "0x4976fb03C32e5B8cfe2b6cCB31c09Ba78EBaBa41", // ENS Public Resolver
+            ["function name(bytes32 node) view returns (string)"],
+            provider
+          );
+
+          // Convert address to namehash format
+          const node = ethers.namehash(
+            `${address.toLowerCase().substring(2)}.addr.reverse`
+          );
+          const name = await ensResolver.name(node);
+
+          if (name && name !== "") {
+            console.log(`Found ENS name via resolver for ${address}: ${name}`);
+            addressElement.innerText = name;
+            addressElement.title = address;
+          }
+        } catch (resolverError) {
+          console.log(
+            `Resolver method also failed for ${address}:`,
+            resolverError
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error setting up ENS resolution:", error);
+
+    // If all else fails, try a public ENS API
+    try {
+      console.log("Trying public ENS API as fallback");
+
+      for (let i = 0; i < topDepositors.length; i++) {
+        const address = topDepositors[i].address;
+        if (!address) continue;
+
+        const addressElement = document.getElementById(
+          `leaderboard-address-${i}`
+        );
+        if (!addressElement) continue;
+
+        // Try using a public API that supports CORS
+        try {
           const response = await fetch(
-            `https://api.ensideas.com/ens/resolve/${address}`
+            `https://api.ensideas.com/ens/resolve/${address}`,
+            { mode: "cors" }
           );
 
           if (response.ok) {
@@ -679,19 +717,16 @@ async function resolveENSNames(topDepositors) {
             }
           }
         } catch (apiError) {
-          console.log(
-            `Could not resolve ENS via API for ${address}:`,
-            apiError
-          );
+          console.log(`API lookup failed for ${address}:`, apiError);
         }
       }
+    } catch (apiError) {
+      console.error("All ENS resolution methods failed:", apiError);
     }
-  } catch (error) {
-    console.error("Error resolving ENS names:", error);
   }
 }
 
-// Alternative ENS resolution approach using a proxy
+// Add a function to manually trigger ENS resolution
 window.refreshENSNames = async function () {
   console.log("Manually refreshing ENS names");
 
@@ -703,14 +738,6 @@ window.refreshENSNames = async function () {
       const address = addressEl.getAttribute("data-address");
       if (address) {
         addresses.push({ address });
-
-        // For demo purposes, let's set a known ENS name for the admin address
-        if (
-          address.toLowerCase() === "0xe9d99d4380e80de290d10f741f77728954fe2d81"
-        ) {
-          addressEl.innerText = "gigalotto.eth";
-          addressEl.title = address;
-        }
       }
     }
   }
