@@ -556,67 +556,62 @@ function useCachedDataIfAvailable() {
 }
 
 // Update leaderboard from data
-async function updateLeaderboardFromData(
+function updateLeaderboardFromData(
   topDepositors,
   selectedTimeframe = "allTime"
 ) {
   const leaderboardEl = document.getElementById("leaderboard");
   if (!leaderboardEl) return;
 
-  let html = "<h3>🏆 TOP DEPOSITORS</h3>";
-
-  // Add timeframe selector with the correct selection
-  html += `
-    <div class="timeframe-selector">
-      <select id="timeframeSelect" onchange="window.changeTimeframe(this.value)">
-        <option value="allTime" ${
-          selectedTimeframe === "allTime" ? "selected" : ""
-        }>All Time</option>
-        <option value="weekly" ${
-          selectedTimeframe === "weekly" ? "selected" : ""
-        }>This Week</option>
-        <option value="daily" ${
-          selectedTimeframe === "daily" ? "selected" : ""
-        }>Today</option>
-      </select>
+  // Create HTML for leaderboard
+  let html = `
+    <div class="leaderboard-header">
+      <div class="timeframe-selector">
+        <select id="timeframeSelect" onchange="window.changeTimeframe(this.value)">
+          <option value="allTime" ${
+            selectedTimeframe === "allTime" ? "selected" : ""
+          }>All Time</option>
+          <option value="weekly" ${
+            selectedTimeframe === "weekly" ? "selected" : ""
+          }>This Week</option>
+          <option value="daily" ${
+            selectedTimeframe === "daily" ? "selected" : ""
+          }>Today</option>
+        </select>
+      </div>
     </div>
+    <div class="leaderboard-table">
+      <div class="leaderboard-row header">
+        <span>Address</span>
+        <span>Amount (ETH)</span>
+      </div>
   `;
 
   if (topDepositors && topDepositors.length > 0) {
-    // Create a placeholder for each entry that will be updated with ENS names
-    html += `<div id="leaderboardEntries">`;
-
-    topDepositors.forEach((depositor, index) => {
-      const shortAddress = `${depositor.address.substring(
+    topDepositors.forEach((entry) => {
+      // Format address for display
+      const shortAddress = `${entry.address.substring(
         0,
         6
-      )}...${depositor.address.substring(38)}`;
-      const etherscanUrl = `https://sepolia.etherscan.io/address/${depositor.address}`;
+      )}...${entry.address.substring(38)}`;
 
       html += `
-        <div class="leaderboard-entry">
-          <span class="rank">${index + 1}</span>
-          <a href="${etherscanUrl}" target="_blank" class="address" id="leaderboard-address-${index}" data-address="${
-        depositor.address
-      }">${shortAddress}</a>
-          <span class="amount">${parseFloat(depositor.amount || 0).toFixed(
-            4
-          )} ETH</span>
+        <div class="leaderboard-row">
+          <span>${shortAddress}</span>
+          <span>${parseFloat(entry.amount).toFixed(4)} ETH</span>
         </div>
       `;
     });
-
-    html += `</div>`;
   } else {
-    html += "<div class='leaderboard-entry'>No deposits yet</div>";
+    html += `
+      <div class="leaderboard-row empty">
+        <span colspan="2">No deposits for this timeframe</span>
+      </div>
+    `;
   }
 
+  html += `</div>`;
   leaderboardEl.innerHTML = html;
-
-  // Now resolve ENS names for each address
-  if (topDepositors && topDepositors.length > 0) {
-    resolveLeaderboardENSNames(topDepositors);
-  }
 }
 
 // Function to resolve ENS names for leaderboard
@@ -729,9 +724,12 @@ export function clearCache() {
 // Make updateLeaderboardFromData available globally
 window.updateLeaderboardFromData = updateLeaderboardFromData;
 
-// Make changeTimeframe available globally
-window.changeTimeframe = function (timeframe) {
+// Add this function to handle timeframe changes
+export function changeTimeframe(timeframe) {
   console.log("Changing timeframe to:", timeframe);
+
+  // Store the selected timeframe in localStorage
+  localStorage.setItem("selectedTimeframe", timeframe);
 
   // Get cached data
   const cachedData = localStorage.getItem("contractData");
@@ -742,7 +740,8 @@ window.changeTimeframe = function (timeframe) {
 
   try {
     const data = JSON.parse(cachedData);
-    if (!data.allDeposits) {
+
+    if (!data.allDeposits || data.allDeposits.length === 0) {
       console.error("No deposit data available for timeframe filtering");
       return;
     }
@@ -772,13 +771,11 @@ window.changeTimeframe = function (timeframe) {
     );
 
     // Sort by amount (highest first)
-    leaderboardData.sort((a, b) => {
-      return parseFloat(b.amount) - parseFloat(a.amount);
-    });
+    leaderboardData.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
 
     // Update leaderboard with filtered data
     updateLeaderboardFromData(leaderboardData.slice(0, 10), timeframe);
   } catch (e) {
     console.error("Error filtering by timeframe:", e);
   }
-};
+}

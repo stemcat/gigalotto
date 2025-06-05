@@ -487,3 +487,31 @@ window.addEventListener("load", async () => {
     winnerClaimBtn.addEventListener("click", withdrawWinnings);
   }
 });
+
+// Add this function to window for timeframe changes
+window.changeTimeframe = function (timeframe) {
+  changeTimeframe(timeframe);
+};
+
+// Add this to prevent auto-refresh from resetting timeframe
+function setupAutoRefresh() {
+  // Initial load
+  loadJackpotInfo();
+
+  // Refresh every 30 seconds but preserve timeframe
+  setInterval(() => {
+    // Get current timeframe before refresh
+    const currentTimeframe =
+      localStorage.getItem("selectedTimeframe") || "allTime";
+
+    // Load data
+    loadJackpotInfo().then(() => {
+      // Ensure timeframe is preserved if it's not allTime
+      if (currentTimeframe !== "allTime") {
+        setTimeout(() => {
+          changeTimeframe(currentTimeframe);
+        }, 100);
+      }
+    });
+  }, 30000);
+}

@@ -284,8 +284,18 @@ export async function checkWinnerAndDraw() {
           const adminDiv = document.createElement("div");
           adminDiv.id = "adminSection";
           adminDiv.className = "admin-section";
+
+          // Get collected fees
+          const collectedFees = await checkCollectedFees();
+
           adminDiv.innerHTML = `
             <h3>Admin Controls</h3>
+            <div class="admin-info">
+              <div class="admin-stat">
+                <span>Collected Fees:</span>
+                <span id="collectedFees">${collectedFees} ETH</span>
+              </div>
+            </div>
             <div id="adminStatus">Checking draw status...</div>
             <div class="admin-controls">
               <div>
@@ -303,6 +313,13 @@ export async function checkWinnerAndDraw() {
             </div>
           `;
           dashboard.after(adminDiv);
+        }
+      } else {
+        // Update collected fees if admin section already exists
+        const collectedFeesElement = document.getElementById("collectedFees");
+        if (collectedFeesElement) {
+          const collectedFees = await checkCollectedFees();
+          collectedFeesElement.innerText = `${collectedFees} ETH`;
         }
       }
 
@@ -712,5 +729,18 @@ export async function checkCanDraw() {
     if (adminStatusEl) {
       adminStatusEl.innerText = "⚠️ Failed to check draw status: " + e.message;
     }
+  }
+}
+
+// Add this function to check collected fees
+export async function checkCollectedFees() {
+  if (!contract) return "0";
+
+  try {
+    const collectedFees = await contract.collectedFees();
+    return ethers.formatEther(collectedFees);
+  } catch (e) {
+    console.error("Error checking collected fees:", e);
+    return "0";
   }
 }

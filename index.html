@@ -672,6 +672,63 @@
     transform: translateY(-2px);
     box-shadow: 0 0 15px rgba(255, 165, 0, 0.8);
   }
+
+  /* Add this CSS for the leaderboard and timeframe selector */
+  .leaderboard {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+
+  .leaderboard-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+  }
+
+  .timeframe-selector select {
+    padding: 5px;
+    border-radius: 4px;
+    background-color: #1a0c3a;
+    color: #e0e0ff;
+    border: 1px solid #3a1c8a;
+  }
+
+  .leaderboard-table {
+    width: 100%;
+  }
+
+  .leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-bottom: 1px solid #3a1c8a;
+  }
+
+  .leaderboard-row.header {
+    font-weight: bold;
+    background-color: #1a0c3a;
+    border-bottom: 2px solid #3a1c8a;
+  }
+
+  .leaderboard-row.empty {
+    text-align: center;
+    padding: 15px;
+    color: #8a8a8a;
+  }
+
+  .admin-info {
+    background-color: #1a0c3a;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+  }
+
+  .admin-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+  }
 </style>
 
 <div
