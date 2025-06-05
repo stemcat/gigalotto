@@ -1,7 +1,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details
-const contractAddress = "0xC51569C3877Db750494adA6d1886a9765ab29dD5"; // Updated contract address
+import { contractAddress } from "./wallet.js";
 const abi = [
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
@@ -16,8 +16,47 @@ const abi = [
 const SUBGRAPH_URL =
   "https://api.studio.thegraph.com/query/113076/gigalottosepolia/version/latest";
 
+// Add this debugging function at the top of the file
+export function debugSubgraphConnection() {
+  console.log("Testing subgraph connection...");
+
+  // Simple query to test connection
+  const query = `{
+    contract(id: "${contractAddress.toLowerCase()}") {
+      totalPool
+    }
+  }`;
+
+  fetch(SUBGRAPH_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  })
+    .then((res) => res.json())
+    .then((result) => {
+      console.log("Subgraph response:", result);
+      if (result.errors) {
+        console.error("Subgraph errors:", result.errors);
+        showDataError(true, "Subgraph error: " + result.errors[0].message);
+      } else if (!result.data || !result.data.contract) {
+        console.error("No contract data found");
+        showDataError(true, "No contract data found. Check contract address.");
+      } else {
+        console.log("Subgraph connection successful!");
+      }
+    })
+    .catch((err) => {
+      console.error("Subgraph fetch error:", err);
+      showDataError(true, "Failed to connect to subgraph: " + err.message);
+    });
+}
+
 // Load jackpot info with optimized approach
 export async function loadJackpotInfo() {
+  console.log("Loading jackpot info...");
+  console.log("Using contract address:", contractAddress);
+  console.log("Using subgraph URL:", SUBGRAPH_URL);
+
   // Check if cached data is for the current contract
   const cachedContractData = localStorage.getItem("contractData");
   if (cachedContractData) {

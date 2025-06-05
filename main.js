@@ -11,9 +11,14 @@ import {
   checkIfConnected,
   connectWallet,
   setupAccountChangeListeners,
+  debugWalletConnection,
 } from "./wallet.js";
 
-import { setupAutoRefresh, tryDirectContractCall } from "./read-only.js";
+import {
+  setupAutoRefresh,
+  tryDirectContractCall,
+  debugSubgraphConnection,
+} from "./read-only.js";
 
 // Add validation function for minimum amount with debounce
 let debounceTimeout;
@@ -146,13 +151,58 @@ window.changeTimeframe = function (timeframe) {
   }
 };
 
+// Add this function to help with debugging
+function addDebugButton() {
+  const debugBtn = document.createElement("button");
+  debugBtn.innerText = "🐞 Debug";
+  debugBtn.style.position = "fixed";
+  debugBtn.style.bottom = "10px";
+  debugBtn.style.right = "10px";
+  debugBtn.style.zIndex = "9999";
+  debugBtn.style.padding = "5px 10px";
+  debugBtn.style.background = "#ff5722";
+  debugBtn.style.color = "white";
+  debugBtn.style.border = "none";
+  debugBtn.style.borderRadius = "4px";
+  debugBtn.style.cursor = "pointer";
+
+  debugBtn.addEventListener("click", () => {
+    console.clear();
+    console.log("=== DEBUGGING STARTED ===");
+    debugWalletConnection();
+    debugSubgraphConnection();
+    console.log(
+      "Contract address:",
+      document
+        .querySelector('script[type="module"]')
+        .getAttribute("data-contract")
+    );
+    console.log("Local storage:", localStorage);
+    console.log("=== DEBUGGING ENDED ===");
+  });
+
+  document.body.appendChild(debugBtn);
+}
+
 // Make sure all admin buttons are properly set up
 window.addEventListener("load", async () => {
-  // Initialize web3
-  await initWeb3();
+  console.log("Page loaded, initializing...");
+
+  // Add debug button in development
+  if (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  ) {
+    addDebugButton();
+  }
+
+  // Try to initialize web3
+  const web3Initialized = await initWeb3();
+  console.log("Web3 initialized:", web3Initialized);
 
   // Check if already connected
-  await checkIfConnected();
+  const alreadyConnected = await checkIfConnected();
+  console.log("Already connected:", alreadyConnected);
 
   // Set up account change listeners
   setupAccountChangeListeners();
@@ -161,9 +211,26 @@ window.addEventListener("load", async () => {
   setupAutoRefresh();
 
   // Set up connect/deposit button
-  document
-    .getElementById("connectBtn")
-    .addEventListener("click", connectAndDeposit);
+  const connectBtn = document.getElementById("connectBtn");
+  if (connectBtn) {
+    connectBtn.addEventListener("click", async function () {
+      console.log("Connect button clicked");
+      const userAccount = getUserAccount();
+
+      if (!userAccount) {
+        // Not connected, try to connect
+        console.log("No user account, connecting wallet");
+        const connected = await connectWallet();
+        console.log("Wallet connected:", connected);
+      } else {
+        // Already connected, handle deposit
+        console.log("User account exists, handling deposit");
+        await connectAndDeposit();
+      }
+    });
+  } else {
+    console.error("Connect button not found!");
+  }
 
   // Set up withdraw button
   document
