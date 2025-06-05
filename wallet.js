@@ -175,8 +175,19 @@ export async function connectAndDeposit() {
     updateUI();
   } catch (e) {
     console.error("Deposit error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Deposit failed: " + e.message;
+
+    // Check if user rejected the transaction
+    if (
+      e.code === 4001 ||
+      e.message.includes("user rejected") ||
+      e.message.includes("User denied")
+    ) {
+      document.getElementById("status").innerText =
+        "⚠️ Deposit cancelled: User rejected transaction";
+    } else {
+      document.getElementById("status").innerText =
+        "⚠️ Deposit failed: " + e.message;
+    }
   }
 }
 
@@ -197,8 +208,19 @@ export async function withdrawWinnings() {
     triggerConfetti();
   } catch (e) {
     console.error("Withdraw error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Claim failed: " + e.message;
+
+    // Check if user rejected the transaction
+    if (
+      e.code === 4001 ||
+      e.message.includes("user rejected") ||
+      e.message.includes("User denied")
+    ) {
+      document.getElementById("status").innerText =
+        "⚠️ Claim cancelled: User rejected transaction";
+    } else {
+      document.getElementById("status").innerText =
+        "⚠️ Claim failed: " + e.message;
+    }
   }
 }
 
@@ -212,8 +234,19 @@ export async function withdraw() {
     updateUI();
   } catch (e) {
     console.error("Withdraw error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Withdrawal failed: " + e.message;
+
+    // Check if user rejected the transaction
+    if (
+      e.code === 4001 ||
+      e.message.includes("user rejected") ||
+      e.message.includes("User denied")
+    ) {
+      document.getElementById("status").innerText =
+        "⚠️ Withdrawal cancelled: User rejected transaction";
+    } else {
+      document.getElementById("status").innerText =
+        "⚠️ Withdrawal failed: " + e.message;
+    }
   }
 }
 
@@ -227,8 +260,19 @@ export async function requestDraw() {
     updateUI();
   } catch (e) {
     console.error("Draw error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Draw failed: " + e.message;
+
+    // Check if user rejected the transaction
+    if (
+      e.code === 4001 ||
+      e.message.includes("user rejected") ||
+      e.message.includes("User denied")
+    ) {
+      document.getElementById("status").innerText =
+        "⚠️ Draw cancelled: User rejected transaction";
+    } else {
+      document.getElementById("status").innerText =
+        "⚠️ Draw failed: " + e.message;
+    }
   }
 }
 

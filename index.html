@@ -199,12 +199,14 @@
         position: relative;
       }
 
-      .leaderboard-header h3 {
+      .leaderboard-header strong {
         text-align: center;
         width: 100%;
         margin: 0;
-        color: #00ffff;
-        text-shadow: 0 0 5px #ff00ff;
+        color: #e0e0ff;
+        font-family: "Press Start 2P", cursive;
+        font-size: 1em;
+        display: block;
       }
 
       .timeframe-selector {
@@ -212,16 +214,19 @@
         right: 0;
         font-family: "Press Start 2P", cursive;
         font-size: 0.6em;
-        background-color: #222;
-        color: #0ff;
-        border: 2px solid #444;
-        padding: 5px;
+        background-color: #1a0c3a;
+        color: #00ffff;
+        border: 2px solid #ff00ff;
+        padding: 5px 8px;
         cursor: pointer;
+        min-width: 80px;
       }
 
       .timeframe-selector option {
-        background-color: #222;
-        color: #0ff;
+        background-color: #1a0c3a;
+        color: #00ffff;
+        padding: 2px;
+        font-family: "Press Start 2P", cursive;
       }
 
       .leaderboard-entry {
@@ -443,7 +448,7 @@
 
       <div class="leaderboard-container">
         <div class="leaderboard-header">
-          <h3 style="margin: 0 auto">Top Depositors</h3>
+          <strong>🏆 Top Depositors</strong>
           <select
             id="timeframeSelector"
             class="timeframe-selector"
@@ -569,6 +574,23 @@
 
     <script type="module" src="main.js"></script>
 
+    <script>
+      // Add validateMinAmount function
+      function validateMinAmount(input) {
+        if (input.value && parseFloat(input.value) < 0.001) {
+          input.setCustomValidity("Minimum deposit is 0.001 ETH");
+          document.getElementById("status").innerText =
+            "⚠️ Minimum deposit is 0.001 ETH";
+        } else {
+          input.setCustomValidity("");
+          document.getElementById("status").innerText = "";
+        }
+      }
+
+      // Make the function available globally
+      window.validateMinAmount = validateMinAmount;
+    </script>
+
     <dialog
       id="shareModal"
       style="
@@ -674,21 +696,6 @@
     color: #00ffff;
   }
 
-  /* Add to your existing styles */
-  .timeframe-selector {
-    margin-bottom: 10px;
-    text-align: right;
-  }
-
-  .timeframe-selector select {
-    background-color: #333;
-    color: white;
-    border: 1px solid #555;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.8em;
-  }
-
   .leaderboard-entry {
     display: flex;
     justify-content: space-between;
@@ -756,27 +763,6 @@
     background: linear-gradient(#ff0, #f90);
     transform: translateY(-2px);
     box-shadow: 0 0 15px rgba(255, 165, 0, 0.8);
-  }
-
-  /* Add this CSS for the leaderboard and timeframe selector */
-  .leaderboard {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-  }
-
-  .leaderboard-header {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 10px;
-  }
-
-  .timeframe-selector select {
-    padding: 5px;
-    border-radius: 4px;
-    background-color: #1a0c3a;
-    color: #e0e0ff;
-    border: 1px solid #3a1c8a;
   }
 
   .leaderboard-table {
@@ -908,32 +894,3 @@
     }
   }
 </style>
-
-<!-- Update deposit button to ensure it works -->
-<div class="modal" id="depositModal">
-  <div class="modal-content">
-    <h2>Deposit ETH</h2>
-    <p>Enter the amount of ETH you want to deposit:</p>
-    <input
-      type="number"
-      id="depositAmount"
-      placeholder="ETH Amount (min 0.001)"
-      step="0.001"
-      min="0.001"
-    />
-    <div class="modal-buttons">
-      <button onclick="document.getElementById('depositModal').close()">
-        Cancel
-      </button>
-      <button onclick="window.connectAndDeposit()">Deposit</button>
-    </div>
-  </div>
-</div>
-
-// Add validateMinAmount function function validateMinAmount(input) { if
-(input.value && parseFloat(input.value) < 0.001) {
-input.setCustomValidity("Minimum deposit is 0.001 ETH");
-document.getElementById("status").innerText = "⚠️ Minimum deposit is 0.001 ETH";
-} else { input.setCustomValidity("");
-document.getElementById("status").innerText = ""; } } // Make the function
-available globally window.validateMinAmount = validateMinAmount;
