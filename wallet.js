@@ -383,7 +383,7 @@ export async function checkWinnerAndDraw() {
             <h3>🔐 Admin Controls</h3>
             <div class="admin-info">
               <div class="admin-stat">
-                <span>Collected Fees:</span>
+                <span>💰 Fees available for withdrawal:</span>
                 <span id="collectedFees">${collectedFees} ETH</span>
               </div>
             </div>
@@ -545,10 +545,22 @@ export async function connectWallet() {
 
     document.getElementById("status").innerText = "⏳ Connecting wallet...";
 
-    // Request accounts
-    const accounts = await window.ethereum.request({
-      method: "eth_requestAccounts",
+    // Check if already connected first
+    const existingAccounts = await window.ethereum.request({
+      method: "eth_accounts",
     });
+
+    let accounts;
+    if (existingAccounts.length > 0) {
+      // Already connected, use existing accounts
+      accounts = existingAccounts;
+      console.log("Using existing connection:", accounts);
+    } else {
+      // Request new connection
+      accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+    }
 
     if (accounts.length === 0) {
       document.getElementById("status").innerText = "⚠️ No accounts found.";
@@ -559,8 +571,27 @@ export async function connectWallet() {
     return await initWeb3();
   } catch (e) {
     console.error("Connection error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Connection failed: " + e.message;
+
+    // Handle the specific "already pending" error more gracefully
+    if (e.message.includes("already pending")) {
+      document.getElementById("status").innerText =
+        "⏳ Connection request pending. Please check MetaMask.";
+
+      // Try to proceed with existing connection if available
+      try {
+        const existingAccounts = await window.ethereum.request({
+          method: "eth_accounts",
+        });
+        if (existingAccounts.length > 0) {
+          return await initWeb3();
+        }
+      } catch (retryError) {
+        console.error("Retry error:", retryError);
+      }
+    } else {
+      document.getElementById("status").innerText =
+        "⚠️ Connection failed: " + e.message;
+    }
     return false;
   }
 }
@@ -647,8 +678,30 @@ export function setupAccountChangeListeners() {
       // User disconnected
       document.getElementById("status").innerText = "Wallet disconnected";
       document.getElementById("userDashboard").style.display = "none";
-      document.getElementById("connectBtn").innerText = "Connect Wallet";
+
+      // Show connect button and hide deposit button
+      const connectBtn = document.getElementById("connectBtn");
+      const depositBtn = document.getElementById("depositBtn");
+
+      if (connectBtn) {
+        connectBtn.style.display = "inline-block";
+        connectBtn.innerText = "🔌 Connect Wallet";
+      }
+
+      if (depositBtn) {
+        depositBtn.style.display = "none";
+      }
+
+      // Hide admin section if visible
+      const adminSection = document.getElementById("adminSection");
+      if (adminSection) {
+        adminSection.style.display = "none";
+      }
+
       userAccount = null;
+      contract = null;
+      provider = null;
+      signer = null;
     } else {
       // Account changed, reinitialize
       initWeb3();

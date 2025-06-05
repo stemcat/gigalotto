@@ -443,10 +443,12 @@ function updateUIWithBasicData(
     percentComplete,
   });
 
-  // Update jackpot display
-  document.getElementById(
-    "jackpot"
-  ).innerHTML = `<strong>${totalPoolEth} ETH ($${jackpotUsdFormatted})</strong>`;
+  // Only update jackpot display if value changed
+  const jackpotElement = document.getElementById("jackpot");
+  const newJackpotContent = `<strong>${totalPoolEth} ETH ($${jackpotUsdFormatted})</strong>`;
+  if (jackpotElement && jackpotElement.innerHTML !== newJackpotContent) {
+    jackpotElement.innerHTML = newJackpotContent;
+  }
 
   // Update 24h deposits in ETH instead of USD
   const last24hEth = (
@@ -455,14 +457,15 @@ function updateUIWithBasicData(
   ).toFixed(6);
 
   const eth24hElement = document.getElementById("eth24h");
-  if (eth24hElement) {
+  if (eth24hElement && eth24hElement.innerText !== last24hEth) {
     eth24hElement.innerText = last24hEth;
   }
 
-  // Update progress bar
+  // Only update progress bar if percentage changed
   const progressFill = document.getElementById("progressFill");
-  if (progressFill) {
-    progressFill.style.width = `${Math.min(percentComplete, 100)}%`;
+  const newWidth = `${Math.min(percentComplete, 100)}%`;
+  if (progressFill && progressFill.style.width !== newWidth) {
+    progressFill.style.width = newWidth;
   }
 
   // Update status message based on percent complete
@@ -506,7 +509,7 @@ function useCachedDataIfAvailable() {
 }
 
 // Update leaderboard from data
-function updateLeaderboardFromData(
+async function updateLeaderboardFromData(
   topDepositors,
   selectedTimeframe = "allTime"
 ) {
@@ -521,44 +524,140 @@ function updateLeaderboardFromData(
     timeframeSelector.value = selectedTimeframe;
   }
 
-  let html = ``;
-
-  if (topDepositors && topDepositors.length > 0) {
-    topDepositors.forEach((entry, index) => {
-      // Format address for display
-      const shortAddress = `${entry.address.substring(
-        0,
-        6
-      )}...${entry.address.substring(38)}`;
-
-      html += `
-        <div class="leaderboard-row">
-          <span class="leaderboard-rank">${index + 1}</span>
-          <a 
-            id="leaderboard-address-${index}" 
-            class="leaderboard-address" 
-            href="https://sepolia.etherscan.io/address/${entry.address}" 
-            target="_blank"
-            data-address="${entry.address}"
-          >${shortAddress}</a>
-          <span class="leaderboard-amount">${parseFloat(entry.amount).toFixed(
-            4
-          )} ETH</span>
-        </div>
-      `;
-    });
-
-    // Try to resolve ENS names after rendering
-    setTimeout(() => resolveENSNames(topDepositors), 100);
-  } else {
-    html += `
+  if (!topDepositors || topDepositors.length === 0) {
+    leaderboardEl.innerHTML = `
       <div class="leaderboard-row empty">
         <span colspan="3">No deposits for this timeframe</span>
       </div>
     `;
+    return;
   }
 
+  // Show loading state while resolving ENS names
+  leaderboardEl.innerHTML = `
+    <div class="leaderboard-row empty">
+      <span colspan="3">Loading depositors...</span>
+    </div>
+  `;
+
+  // Resolve ENS names first, then display
+  const depositorsWithENS = await resolveENSNamesBeforeDisplay(topDepositors);
+
+  let html = ``;
+  depositorsWithENS.forEach((entry, index) => {
+    // Use ENS name if available, otherwise format address
+    const displayName =
+      entry.ensName ||
+      `${entry.address.substring(0, 6)}...${entry.address.substring(38)}`;
+    const title = entry.ensName
+      ? `${entry.ensName} (${entry.address})`
+      : entry.address;
+
+    html += `
+      <div class="leaderboard-row">
+        <span class="leaderboard-rank">${index + 1}</span>
+        <a
+          id="leaderboard-address-${index}"
+          class="leaderboard-address"
+          href="https://sepolia.etherscan.io/address/${entry.address}"
+          target="_blank"
+          data-address="${entry.address}"
+          title="${title}"
+        >${displayName}</a>
+        <span class="leaderboard-amount">${parseFloat(entry.amount).toFixed(
+          4
+        )} ETH</span>
+      </div>
+    `;
+  });
+
   leaderboardEl.innerHTML = html;
+}
+
+// Resolve ENS names before displaying (to prevent address->ENS flashing)
+async function resolveENSNamesBeforeDisplay(topDepositors) {
+  if (!topDepositors || topDepositors.length === 0) {
+    return [];
+  }
+
+  console.log("Resolving ENS names before display for:", topDepositors);
+
+  try {
+    // Use Sepolia testnet RPC endpoints that support CORS
+    const rpcEndpoints = [
+      "https://eth-sepolia.public.blastapi.io",
+      "https://rpc.sepolia.org",
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
+    ];
+
+    let provider;
+    let connected = false;
+
+    // Try each endpoint until one works
+    for (const endpoint of rpcEndpoints) {
+      try {
+        console.log(`Trying Sepolia RPC endpoint for ENS: ${endpoint}`);
+        provider = new ethers.JsonRpcProvider(endpoint);
+
+        // Test the connection
+        await provider.getBlockNumber();
+        console.log(`Connected to Sepolia RPC for ENS resolution: ${endpoint}`);
+
+        connected = true;
+        break;
+      } catch (rpcError) {
+        console.error(`Failed to connect to ${endpoint} for ENS:`, rpcError);
+      }
+    }
+
+    if (!connected) {
+      console.warn(
+        "Failed to connect to any Sepolia RPC endpoint for ENS resolution"
+      );
+      return topDepositors; // Return original data without ENS names
+    }
+
+    // Process each depositor and resolve ENS names
+    const depositorsWithENS = await Promise.all(
+      topDepositors.map(async (depositor) => {
+        const address = depositor.address;
+        if (!address) return depositor;
+
+        try {
+          // First check Sepolia ENS
+          let ensName = await provider.lookupAddress(address);
+
+          if (!ensName) {
+            // If no ENS name on Sepolia, try mainnet
+            try {
+              const mainnetProvider = new ethers.JsonRpcProvider(
+                "https://cloudflare-eth.com"
+              );
+              ensName = await mainnetProvider.lookupAddress(address);
+            } catch (mainnetError) {
+              console.error(
+                `Error checking mainnet ENS for ${address}:`,
+                mainnetError
+              );
+            }
+          }
+
+          return {
+            ...depositor,
+            ensName: ensName || null,
+          };
+        } catch (error) {
+          console.error(`Error resolving ENS for ${address}:`, error);
+          return depositor;
+        }
+      })
+    );
+
+    return depositorsWithENS;
+  } catch (error) {
+    console.error("Error setting up ENS resolution:", error);
+    return topDepositors; // Return original data without ENS names
+  }
 }
 
 // Fix ENS name resolution to use Sepolia testnet
