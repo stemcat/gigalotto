@@ -51,11 +51,44 @@ export function debugSubgraphConnection() {
     });
 }
 
+// Add a function to check if the contract exists at the specified address
+export async function verifyContractAddress() {
+  console.log("Verifying contract address:", contractAddress);
+
+  try {
+    // Use a public RPC endpoint
+    const provider = new ethers.JsonRpcProvider("https://rpc.sepolia.org");
+
+    // Check if there's code at the address
+    const code = await provider.getCode(contractAddress);
+
+    if (code === "0x") {
+      console.error("No contract found at address:", contractAddress);
+      document.getElementById("status").innerText =
+        "⚠️ No contract found at the specified address. Please check configuration.";
+      return false;
+    }
+
+    console.log("Contract verified at address:", contractAddress);
+    return true;
+  } catch (error) {
+    console.error("Error verifying contract:", error);
+    return false;
+  }
+}
+
 // Load jackpot info with optimized approach
 export async function loadJackpotInfo() {
   console.log("Loading jackpot info...");
   console.log("Using contract address:", contractAddress);
-  console.log("Using subgraph URL:", SUBGRAPH_URL);
+
+  // Verify the contract exists first
+  const contractExists = await verifyContractAddress();
+  if (!contractExists) {
+    console.error("Contract verification failed");
+    showDataError(true, "Contract verification failed. Check address.");
+    return;
+  }
 
   // Check if cached data is for the current contract
   const cachedContractData = localStorage.getItem("contractData");

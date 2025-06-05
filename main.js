@@ -18,6 +18,7 @@ import {
   setupAutoRefresh,
   tryDirectContractCall,
   debugSubgraphConnection,
+  verifyContractAddress,
 } from "./read-only.js";
 
 // Add validation function for minimum amount with debounce
@@ -184,6 +185,28 @@ function addDebugButton() {
   document.body.appendChild(debugBtn);
 }
 
+// Add refresh button for all environments
+function addRefreshButton() {
+  const refreshBtn = document.createElement("button");
+  refreshBtn.innerText = "🔄 Refresh";
+  refreshBtn.style.position = "fixed";
+  refreshBtn.style.bottom = "10px";
+  refreshBtn.style.right = "100px";
+  refreshBtn.style.zIndex = "9999";
+  refreshBtn.style.padding = "5px 10px";
+  refreshBtn.style.background = "#4CAF50";
+  refreshBtn.style.color = "white";
+  refreshBtn.style.border = "none";
+  refreshBtn.style.borderRadius = "4px";
+  refreshBtn.style.cursor = "pointer";
+
+  refreshBtn.addEventListener("click", () => {
+    window.location.reload();
+  });
+
+  document.body.appendChild(refreshBtn);
+}
+
 // Make sure all admin buttons are properly set up
 window.addEventListener("load", async () => {
   console.log("Page loaded, initializing...");
@@ -196,19 +219,33 @@ window.addEventListener("load", async () => {
     addDebugButton();
   }
 
-  // Try to initialize web3
-  const web3Initialized = await initWeb3();
-  console.log("Web3 initialized:", web3Initialized);
+  // Add refresh button for all environments
+  addRefreshButton();
 
-  // Check if already connected
-  const alreadyConnected = await checkIfConnected();
-  console.log("Already connected:", alreadyConnected);
+  // Verify contract address first
+  const contractVerified = await verifyContractAddress();
+  console.log("Contract verified:", contractVerified);
 
-  // Set up account change listeners
-  setupAccountChangeListeners();
+  // Only proceed with initialization if contract is verified
+  if (contractVerified) {
+    // Try to initialize web3
+    const web3Initialized = await initWeb3();
+    console.log("Web3 initialized:", web3Initialized);
 
-  // Set up auto-refresh for jackpot info
-  setupAutoRefresh();
+    // Check if already connected
+    const alreadyConnected = await checkIfConnected();
+    console.log("Already connected:", alreadyConnected);
+
+    // Set up account change listeners
+    setupAccountChangeListeners();
+
+    // Set up auto-refresh for jackpot info
+    setupAutoRefresh();
+  } else {
+    console.error("Contract verification failed, stopping initialization");
+    document.getElementById("status").innerText =
+      "⚠️ Contract verification failed. Please check the contract address.";
+  }
 
   // Set up connect/deposit button
   const connectBtn = document.getElementById("connectBtn");
