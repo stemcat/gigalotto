@@ -16,51 +16,105 @@ const abi = [
 const SUBGRAPH_URL =
   "https://api.studio.thegraph.com/query/113076/gigalottosepolia/version/latest";
 
-// Add this debugging function at the top of the file
+// Improved subgraph debugging
 export function debugSubgraphConnection() {
-  console.log("Testing subgraph connection...");
+  console.log("=== SUBGRAPH CONNECTION DEBUGGING ===");
+  console.log("Subgraph URL:", SUBGRAPH_URL);
+  console.log("Contract address:", contractAddress);
 
-  // Simple query to test connection
-  const query = `{
-    contract(id: "${contractAddress.toLowerCase()}") {
-      totalPool
-    }
-  }`;
-
+  // Test basic connection to subgraph
   fetch(SUBGRAPH_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query: "{ _meta { block { number } } }" }),
   })
+    .then((res) => {
+      console.log("Subgraph connection status:", res.status);
+      return res.json();
+    })
+    .then((result) => {
+      console.log("Subgraph _meta response:", result);
+
+      // Now try a specific query for our contract
+      const contractQuery = `{
+        contract(id: "${contractAddress.toLowerCase()}") {
+          totalPool
+        }
+      }`;
+
+      return fetch(SUBGRAPH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: contractQuery }),
+      });
+    })
     .then((res) => res.json())
     .then((result) => {
-      console.log("Subgraph response:", result);
+      console.log("Contract query response:", result);
+
       if (result.errors) {
         console.error("Subgraph errors:", result.errors);
-        showDataError(true, "Subgraph error: " + result.errors[0].message);
       } else if (!result.data || !result.data.contract) {
-        console.error("No contract data found");
-        showDataError(true, "No contract data found. Check contract address.");
+        console.error(
+          "No contract data found. Contract may not be indexed yet."
+        );
+
+        // Try direct contract call as fallback
+        console.log("Trying direct contract call as fallback...");
+        tryDirectContractCall(true); // true = debug mode
       } else {
         console.log("Subgraph connection successful!");
       }
     })
     .catch((err) => {
       console.error("Subgraph fetch error:", err);
-      showDataError(true, "Failed to connect to subgraph: " + err.message);
+      console.log("Trying direct contract call as fallback...");
+      tryDirectContractCall(true); // true = debug mode
     });
 }
 
-// Add a function to check if the contract exists at the specified address
+// Improved contract verification
 export async function verifyContractAddress() {
   console.log("Verifying contract address:", contractAddress);
 
   try {
-    // Use a public RPC endpoint
-    const provider = new ethers.JsonRpcProvider("https://rpc.sepolia.org");
+    // Try multiple RPC endpoints
+    const rpcEndpoints = [
+      "https://eth-sepolia.public.blastapi.io",
+      "https://rpc.sepolia.org",
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
+    ];
+
+    let provider;
+    let connected = false;
+
+    // Try each endpoint until one works
+    for (const endpoint of rpcEndpoints) {
+      try {
+        console.log("Trying RPC endpoint for verification:", endpoint);
+        provider = new ethers.JsonRpcProvider(endpoint);
+
+        // Test the connection
+        await provider.getBlockNumber();
+        console.log("Connected to RPC for verification");
+
+        connected = true;
+        break;
+      } catch (rpcError) {
+        console.error(
+          `Failed to connect to ${endpoint} for verification:`,
+          rpcError
+        );
+      }
+    }
+
+    if (!connected) {
+      throw new Error("Failed to connect to any RPC endpoint for verification");
+    }
 
     // Check if there's code at the address
     const code = await provider.getCode(contractAddress);
+    console.log("Contract code length:", code.length);
 
     if (code === "0x") {
       console.error("No contract found at address:", contractAddress);
@@ -73,6 +127,8 @@ export async function verifyContractAddress() {
     return true;
   } catch (error) {
     console.error("Error verifying contract:", error);
+    document.getElementById("status").innerText =
+      "⚠️ Failed to verify contract: " + (error.message || "Network error");
     return false;
   }
 }
@@ -312,82 +368,117 @@ export async function loadJackpotInfo() {
   tryDirectContractCall();
 }
 
-// Separate function for direct contract calls as last resort
-export async function tryDirectContractCall() {
-  try {
-    console.log("Attempting direct contract call as last resort");
+// Improved direct contract call with debug option
+export async function tryDirectContractCall(debug = false) {
+  if (debug) console.log("=== DIRECT CONTRACT CALL DEBUGGING ===");
 
-    // Use a public RPC endpoint that allows CORS
-    const provider = new ethers.JsonRpcProvider(
-      "https://eth-sepolia.public.blastapi.io"
-    );
+  try {
+    if (debug) console.log("Attempting direct contract call");
+    if (debug) console.log("Contract address:", contractAddress);
+
+    // Try multiple RPC endpoints in case one fails
+    const rpcEndpoints = [
+      "https://eth-sepolia.public.blastapi.io",
+      "https://rpc.sepolia.org",
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura endpoint
+    ];
+
+    let provider;
+    let connected = false;
+
+    // Try each endpoint until one works
+    for (const endpoint of rpcEndpoints) {
+      try {
+        if (debug) console.log("Trying RPC endpoint:", endpoint);
+        provider = new ethers.JsonRpcProvider(endpoint);
+
+        // Test the connection with a simple call
+        const blockNumber = await provider.getBlockNumber();
+        if (debug) console.log("Connected to RPC. Block number:", blockNumber);
+
+        connected = true;
+        break;
+      } catch (rpcError) {
+        if (debug) console.error(`Failed to connect to ${endpoint}:`, rpcError);
+      }
+    }
+
+    if (!connected) {
+      throw new Error("Failed to connect to any RPC endpoint");
+    }
 
     const contract = new ethers.Contract(contractAddress, abi, provider);
 
     // Fetch basic data
-    console.log("Fetching contract data...");
-    const [totalPool, jackpotUsd, targetUsd, last24hUsd] = await Promise.all([
-      contract.totalPool(),
-      contract.getJackpotUsd(),
-      contract.TARGET_USD(),
-      contract.last24hDepositUsd(),
-    ]);
+    if (debug) console.log("Fetching contract data...");
 
-    // Format values
-    const totalPoolEth = ethers.formatEther(totalPool);
-    const jackpotUsdFormatted = (Number(jackpotUsd) / 1e8).toFixed(2);
-    const targetUsdFormatted = (Number(targetUsd) / 1e8).toFixed(2);
-    const last24hUsdFormatted = (Number(last24hUsd) / 1e8).toFixed(2);
-    const percentComplete = (Number(jackpotUsd) * 100) / Number(targetUsd);
-
-    // Update UI
-    updateUIWithBasicData(
-      totalPoolEth,
-      jackpotUsdFormatted,
-      last24hUsdFormatted,
-      percentComplete
-    );
-
-    // Try to get entries for leaderboard
     try {
-      const entriesCount = await contract.getEntriesCount();
-      const entries = [];
+      const totalPool = await contract.totalPool();
+      if (debug)
+        console.log("Total pool:", ethers.formatEther(totalPool), "ETH");
 
-      // Only fetch up to 20 entries to avoid too many calls
-      const countToFetch = Math.min(Number(entriesCount), 20);
+      // Update UI with this data
+      const totalPoolEth = ethers.formatEther(totalPool);
+      document.getElementById(
+        "jackpot"
+      ).innerHTML = `<strong>${totalPoolEth} ETH</strong>`;
 
-      for (let i = 0; i < countToFetch; i++) {
-        const entry = await contract.getEntry(i);
-        entries.push({
-          address: entry.user,
-          amount: ethers.formatEther(await contract.userDeposits(entry.user)),
-        });
+      // Update progress bar if it exists
+      const progressFill = document.getElementById("progressFill");
+      if (progressFill) {
+        progressFill.style.width = "10%"; // Default value until we get jackpotUsd
       }
 
-      // Update leaderboard
-      updateLeaderboardFromData(entries);
-    } catch (error) {
-      console.error("Error fetching leaderboard entries:", error);
+      // Try to get more data
+      try {
+        const jackpotUsd = await contract.getJackpotUsd();
+        const targetUsd = await contract.TARGET_USD();
+
+        if (debug) {
+          console.log("Jackpot USD:", Number(jackpotUsd) / 1e8);
+          console.log("Target USD:", Number(targetUsd) / 1e8);
+        }
+
+        // Calculate percentage
+        const percentComplete = (Number(jackpotUsd) * 100) / Number(targetUsd);
+
+        // Update progress bar
+        if (progressFill) {
+          progressFill.style.width = `${Math.min(percentComplete, 100)}%`;
+        }
+
+        // Format values
+        const jackpotUsdFormatted = (Number(jackpotUsd) / 1e8).toFixed(2);
+        document.getElementById(
+          "jackpot"
+        ).innerHTML = `<strong>${totalPoolEth} ETH ($${jackpotUsdFormatted})</strong>`;
+      } catch (dataError) {
+        if (debug) console.error("Error fetching additional data:", dataError);
+      }
+
+      // Hide any error messages since we got some data
+      const errorElement = document.getElementById("dataLoadingError");
+      if (errorElement) {
+        errorElement.style.display = "none";
+      }
+
+      return true;
+    } catch (contractError) {
+      if (debug) console.error("Contract call error:", contractError);
+      throw contractError;
+    }
+  } catch (e) {
+    console.error("Direct contract call failed:", e);
+
+    // Show error message
+    const errorElement = document.getElementById("dataLoadingError");
+    if (errorElement) {
+      errorElement.style.display = "block";
+      errorElement.querySelector("p").textContent =
+        "⚠️ Failed to load data: " + (e.message || "Unknown error");
     }
 
-    // Store basic data
-    const basicData = {
-      contractAddress: contractAddress,
-      totalPoolEth,
-      jackpotUsdFormatted,
-      targetUsdFormatted,
-      last24hUsdFormatted,
-      percentComplete,
-      timestamp: Date.now(),
-    };
-
-    localStorage.setItem("contractData", JSON.stringify(basicData));
-
-    // Hide any error messages
-    showDataError(false);
-  } catch (e) {
-    console.error("All data fetching methods failed:", e);
-    useCachedDataIfAvailable();
+    return false;
   }
 }
 
@@ -650,26 +741,29 @@ export function clearCache() {
 window.updateLeaderboardFromData = updateLeaderboardFromData;
 
 // Make changeTimeframe available globally
-window.changeTimeframe = function(timeframe) {
+window.changeTimeframe = function (timeframe) {
   console.log("Changing timeframe to:", timeframe);
-  
+
   // Get cached data
   const cachedData = localStorage.getItem("contractData");
   if (!cachedData) {
     console.error("No cached data available for timeframe filtering");
     return;
   }
-  
+
   try {
     const data = JSON.parse(cachedData);
     if (!data.allDeposits) {
       console.error("No deposit data available for timeframe filtering");
       return;
     }
-    
+
     // Filter deposits by timeframe
-    const filteredDeposits = filterEntriesByTimeframe(data.allDeposits, timeframe);
-    
+    const filteredDeposits = filterEntriesByTimeframe(
+      data.allDeposits,
+      timeframe
+    );
+
     // Group by address and sum amounts
     const depositorMap = new Map();
     filteredDeposits.forEach((deposit) => {
@@ -679,7 +773,7 @@ window.changeTimeframe = function(timeframe) {
         currentAmount + parseFloat(deposit.amount)
       );
     });
-    
+
     // Convert to array and sort by amount
     const leaderboardData = Array.from(depositorMap.entries()).map(
       ([address, amount]) => ({
@@ -687,12 +781,12 @@ window.changeTimeframe = function(timeframe) {
         amount: amount.toString(),
       })
     );
-    
+
     // Sort by amount (highest first)
     leaderboardData.sort((a, b) => {
       return parseFloat(b.amount) - parseFloat(a.amount);
     });
-    
+
     // Update leaderboard with filtered data
     updateLeaderboardFromData(leaderboardData.slice(0, 10), timeframe);
   } catch (e) {

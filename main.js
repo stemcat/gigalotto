@@ -207,6 +207,37 @@ function addRefreshButton() {
   document.body.appendChild(refreshBtn);
 }
 
+// Add this function to test all connections
+window.testAllConnections = function () {
+  console.clear();
+  console.log("=== TESTING ALL CONNECTIONS ===");
+
+  // 1. Test contract verification
+  verifyContractAddress()
+    .then((verified) => {
+      console.log("Contract verification result:", verified);
+
+      // 2. Test subgraph connection
+      debugSubgraphConnection();
+
+      // 3. Test direct contract call
+      return tryDirectContractCall(true);
+    })
+    .then((directCallResult) => {
+      console.log("Direct contract call result:", directCallResult);
+
+      // 4. Test wallet connection if MetaMask is available
+      if (window.ethereum) {
+        debugWalletConnection();
+      } else {
+        console.error("MetaMask not available for testing");
+      }
+    })
+    .catch((error) => {
+      console.error("Test failed:", error);
+    });
+};
+
 // Make sure all admin buttons are properly set up
 window.addEventListener("load", async () => {
   console.log("Page loaded, initializing...");
@@ -221,6 +252,26 @@ window.addEventListener("load", async () => {
 
   // Add refresh button for all environments
   addRefreshButton();
+
+  // Add test connections button
+  const testBtn = document.createElement("button");
+  testBtn.innerText = "🔍 Test Connections";
+  testBtn.style.position = "fixed";
+  testBtn.style.bottom = "10px";
+  testBtn.style.right = "190px";
+  testBtn.style.zIndex = "9999";
+  testBtn.style.padding = "5px 10px";
+  testBtn.style.background = "#2196F3";
+  testBtn.style.color = "white";
+  testBtn.style.border = "none";
+  testBtn.style.borderRadius = "4px";
+  testBtn.style.cursor = "pointer";
+
+  testBtn.addEventListener("click", window.testAllConnections);
+  document.body.appendChild(testBtn);
+
+  // Try to load basic data even without wallet connection
+  tryDirectContractCall();
 
   // Verify contract address first
   const contractVerified = await verifyContractAddress();

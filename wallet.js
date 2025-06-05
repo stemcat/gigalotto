@@ -377,7 +377,14 @@ export async function connectWallet() {
 
   if (!termsAccepted) {
     // Show terms modal
-    document.getElementById("termsModal").showModal();
+    const termsModal = document.getElementById("termsModal");
+    if (termsModal?.showModal) {
+      termsModal.showModal();
+    } else {
+      console.error("Terms modal not found or showModal not supported");
+      document.getElementById("status").innerText =
+        "⚠️ Browser doesn't support dialog element. Please use a modern browser.";
+    }
     return false;
   }
 
@@ -385,12 +392,31 @@ export async function connectWallet() {
   try {
     if (!window.ethereum) {
       document.getElementById("status").innerText =
-        "⚠️ Please install MetaMask.";
+        "⚠️ MetaMask not detected. Please install MetaMask and refresh.";
       return false;
     }
 
-    // Request accounts
-    await window.ethereum.request({ method: "eth_requestAccounts" });
+    document.getElementById("status").innerText = "⏳ Requesting accounts...";
+
+    // Request accounts with explicit error handling
+    try {
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+      console.log("Accounts after request:", accounts);
+
+      if (accounts.length === 0) {
+        document.getElementById("status").innerText =
+          "⚠️ No accounts authorized. Please unlock MetaMask and try again.";
+        return false;
+      }
+    } catch (requestError) {
+      console.error("Account request error:", requestError);
+      document.getElementById("status").innerText =
+        "⚠️ Failed to connect: " +
+        (requestError.message || "User rejected request");
+      return false;
+    }
 
     // Initialize Web3
     return await initWeb3();
@@ -498,9 +524,9 @@ export function setupAccountChangeListeners() {
   }
 }
 
-// Debug wallet connection
+// Debug wallet connection with more detailed logging
 export function debugWalletConnection() {
-  console.log("Debugging wallet connection...");
+  console.log("=== WALLET CONNECTION DEBUGGING ===");
   console.log("window.ethereum exists:", !!window.ethereum);
 
   if (window.ethereum) {
@@ -508,6 +534,7 @@ export function debugWalletConnection() {
     console.log("Signer:", signer);
     console.log("User account:", userAccount);
     console.log("Contract:", contract);
+    console.log("Contract address:", contractAddress);
 
     // Check if we're on Sepolia
     window.ethereum
@@ -515,20 +542,33 @@ export function debugWalletConnection() {
       .then((chainId) => {
         console.log("Current chain ID:", chainId);
         console.log("Is Sepolia:", chainId === "0xaa36a7");
-      })
-      .catch((err) => {
-        console.error("Error getting chain ID:", err);
-      });
 
-    // Check accounts
-    window.ethereum
-      .request({ method: "eth_accounts" })
+        // Check accounts
+        return window.ethereum.request({ method: "eth_accounts" });
+      })
       .then((accounts) => {
         console.log("Current accounts:", accounts);
+        if (accounts.length === 0) {
+          console.log("No accounts connected. Try requesting accounts...");
+          return window.ethereum
+            .request({ method: "eth_requestAccounts" })
+            .then((requestedAccounts) => {
+              console.log("Requested accounts:", requestedAccounts);
+            })
+            .catch((err) => {
+              console.error("Error requesting accounts:", err);
+            });
+        }
       })
       .catch((err) => {
-        console.error("Error getting accounts:", err);
+        console.error("Error in wallet debugging:", err);
       });
+  } else {
+    console.error("MetaMask not installed or not accessible");
+    // Check if running in iframe which might block MetaMask
+    if (window !== window.top) {
+      console.error("Running in iframe - MetaMask might be blocked");
+    }
   }
 }
 

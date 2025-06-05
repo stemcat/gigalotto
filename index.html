@@ -317,6 +317,32 @@
         }
       }
     </style>
+    <script>
+      // Check if MetaMask is installed
+      window.addEventListener("DOMContentLoaded", () => {
+        const statusEl = document.getElementById("status");
+        if (statusEl) {
+          if (window.ethereum) {
+            statusEl.innerText =
+              "MetaMask detected. Click 'Connect Wallet' to begin.";
+          } else {
+            statusEl.innerHTML =
+              "⚠️ MetaMask not detected. <a href='https://metamask.io/download/' target='_blank'>Install MetaMask</a> to use this app.";
+          }
+        }
+
+        // Add fallback for contract data
+        const jackpotEl = document.getElementById("jackpot");
+        if (jackpotEl && jackpotEl.innerText === "Loading...") {
+          setTimeout(() => {
+            if (jackpotEl.innerText === "Loading...") {
+              jackpotEl.innerHTML =
+                '<button onclick="window.testAllConnections()">⚠️ Data not loading. Click to test connections</button>';
+            }
+          }, 5000); // After 5 seconds
+        }
+      });
+    </script>
   </head>
   <body>
     <div class="crt-effect"></div>
@@ -648,9 +674,30 @@
   }
 </style>
 
-<div id="dataLoadingError" class="error-message" style="display: none">
-  <p>⚠️ Error loading data. We're working on it!</p>
-  <button onclick="window.location.reload()">Refresh Page</button>
+<div
+  id="dataLoadingError"
+  style="
+    display: none;
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid red;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+    text-align: center;
+  "
+>
+  <p>⚠️ Error loading data. Please try refreshing.</p>
+  <div
+    style="display: flex; justify-content: center; gap: 10px; margin-top: 10px"
+  >
+    <button onclick="window.clearCacheAndRefresh()">
+      Clear Cache & Refresh
+    </button>
+    <button onclick="window.forceDirectContractCall()">
+      Try Direct Contract Call
+    </button>
+    <button onclick="window.testAllConnections()">Test All Connections</button>
+  </div>
 </div>
 
 <div class="debug-controls" style="margin-top: 20px; text-align: center">
