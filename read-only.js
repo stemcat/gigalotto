@@ -1,7 +1,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details
-import { contractAddress } from "./wallet.js";
+import { contractAddress, abi as walletAbi } from "./wallet.js";
 const abi = [
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
@@ -10,6 +10,7 @@ const abi = [
   "function getEntriesCount() view returns (uint256)",
   "function getEntry(uint256 index) view returns (address user, uint256 cumulative)",
   "function userDeposits(address user) view returns (uint256)",
+  "function collectedFees() view returns (uint256)",
 ];
 
 // Update the subgraph endpoint with your actual deployed subgraph URL
@@ -693,8 +694,22 @@ export function setupAutoRefresh() {
   // Initial load
   loadJackpotInfo();
 
-  // Refresh every 30 seconds
-  setInterval(loadJackpotInfo, 30000);
+  // Refresh every 30 seconds but preserve timeframe
+  setInterval(() => {
+    // Get current timeframe before refresh
+    const currentTimeframe =
+      localStorage.getItem("selectedTimeframe") || "allTime";
+
+    // Load data
+    loadJackpotInfo().then(() => {
+      // Ensure timeframe is preserved if it's not allTime
+      if (currentTimeframe !== "allTime") {
+        setTimeout(() => {
+          changeTimeframe(currentTimeframe);
+        }, 100);
+      }
+    });
+  }, 30000);
 }
 
 // Add this function to show/hide the error message
@@ -724,7 +739,7 @@ export function clearCache() {
 // Make updateLeaderboardFromData available globally
 window.updateLeaderboardFromData = updateLeaderboardFromData;
 
-// Add this function to handle timeframe changes
+// Export the changeTimeframe function
 export function changeTimeframe(timeframe) {
   console.log("Changing timeframe to:", timeframe);
 
@@ -779,3 +794,37 @@ export function changeTimeframe(timeframe) {
     console.error("Error filtering by timeframe:", e);
   }
 }
+
+// Make testAllConnections available globally
+window.testAllConnections = function () {
+  console.clear();
+  console.log("=== TESTING ALL CONNECTIONS ===");
+
+  // 1. Test contract verification
+  verifyContractAddress()
+    .then((verified) => {
+      console.log("Contract verification result:", verified);
+
+      // 2. Test subgraph connection
+      debugSubgraphConnection();
+
+      // 3. Test direct contract call
+      return tryDirectContractCall(true);
+    })
+    .then((directCallResult) => {
+      console.log("Direct contract call result:", directCallResult);
+
+      // 4. Test wallet connection if MetaMask is available
+      if (window.ethereum) {
+        debugWalletConnection();
+      } else {
+        console.error("MetaMask not available for testing");
+      }
+    })
+    .catch((error) => {
+      console.error("Test failed:", error);
+    });
+};
+
+// Import the debugWalletConnection function from wallet.js
+import { debugWalletConnection } from "./wallet.js";

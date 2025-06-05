@@ -21,6 +21,8 @@ export const abi = [
   "function owner() view returns (address)",
   "function getEntriesCount() view returns (uint256)",
   "function getEntry(uint256) view returns (address, uint256)",
+  "function collectedFees() view returns (uint256)",
+  "function last24hDepositUsd() view returns (uint256)",
   "event WinnerSelectionExpired(address indexed previousWinner)",
 ];
 

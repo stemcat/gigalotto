@@ -19,6 +19,7 @@ import {
   tryDirectContractCall,
   debugSubgraphConnection,
   verifyContractAddress,
+  changeTimeframe,
 } from "./read-only.js";
 
 // Add validation function for minimum amount with debounce

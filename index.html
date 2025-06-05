@@ -20,6 +20,10 @@
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤑</text></svg>"
     />
     <style>
+      /* Use a fallback font if Press Start 2P fails to load */
+      body {
+        font-family: "Press Start 2P", monospace, sans-serif;
+      }
       @font-face {
         font-family: "ArcadeClassic";
         src: url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
