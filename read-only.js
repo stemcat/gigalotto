@@ -863,24 +863,6 @@ export async function initializeReadOnly() {
   window.initializeReadOnly = initializeReadOnly;
 }
 
-// Load jackpot info from subgraph or contract
-export async function loadJackpotInfo() {
-  console.log("Loading jackpot info");
-
-  try {
-    // Try to fetch from subgraph first
-    const subgraphSuccess = await tryFetchFromSubgraph();
-
-    if (!subgraphSuccess) {
-      console.log("Subgraph fetch failed, trying direct contract call");
-      await tryDirectContractCall();
-    }
-  } catch (error) {
-    console.error("Error loading jackpot info:", error);
-    showDataError(true, "Failed to load data: " + error.message);
-  }
-}
-
 // Make loadJackpotInfo available globally
 window.loadJackpotInfo = loadJackpotInfo;
 
