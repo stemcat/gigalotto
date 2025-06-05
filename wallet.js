@@ -113,11 +113,12 @@ export async function initWeb3() {
 
     // Change connect button to deposit button
     const connectBtn = document.getElementById("connectBtn");
+    const depositBtn = document.getElementById("depositBtn");
+
     if (connectBtn) {
       connectBtn.style.display = "none";
     }
 
-    const depositBtn = document.getElementById("depositBtn");
     if (depositBtn) {
       depositBtn.style.display = "inline-block";
     }
@@ -135,16 +136,8 @@ export async function initWeb3() {
 // Handle deposits
 export async function connectAndDeposit() {
   try {
-    // Get the modal element
-    const modal = document.getElementById("depositModal");
-
-    // Only try to close if it's a dialog element with showModal method
-    if (modal && typeof modal.close === "function") {
-      modal.close();
-    }
-
     // Get the amount from the input
-    const amountInput = document.getElementById("depositAmount");
+    const amountInput = document.getElementById("ethAmount");
     const amount = amountInput.value;
 
     // Validate amount
@@ -178,25 +171,12 @@ export async function connectAndDeposit() {
     await tx.wait();
     document.getElementById("status").innerText = "✅ Deposit successful!";
 
-    // Show share modal
-    const shareModal = document.getElementById("shareModal");
-    if (shareModal && typeof shareModal.showModal === "function") {
-      shareModal.showModal();
-    }
-
     // Update UI
     updateUI();
   } catch (e) {
     console.error("Deposit error:", e);
-
-    // Simplify error message for user rejection
-    if (e.message && e.message.includes("user rejected")) {
-      document.getElementById("status").innerText =
-        "⚠️ Deposit failed: user rejected transaction";
-    } else {
-      document.getElementById("status").innerText =
-        "⚠️ Deposit failed: " + e.message.split("(")[0].trim();
-    }
+    document.getElementById("status").innerText =
+      "⚠️ Deposit failed: " + e.message;
   }
 }
 
@@ -430,6 +410,19 @@ export async function checkIfConnected() {
     if (accounts.length > 0) {
       return await initWeb3();
     }
+
+    // Not connected, make sure connect button is visible and deposit button is hidden
+    const connectBtn = document.getElementById("connectBtn");
+    const depositBtn = document.getElementById("depositBtn");
+
+    if (connectBtn) {
+      connectBtn.style.display = "inline-block";
+    }
+
+    if (depositBtn) {
+      depositBtn.style.display = "none";
+    }
+
     return false;
   } catch (e) {
     console.error("Check connection error:", e);
@@ -500,6 +493,8 @@ export async function connectWallet() {
         "⚠️ Please install MetaMask.";
       return false;
     }
+
+    document.getElementById("status").innerText = "⏳ Connecting wallet...";
 
     // Request accounts
     const accounts = await window.ethereum.request({

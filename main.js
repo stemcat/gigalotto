@@ -30,37 +30,34 @@ document.addEventListener("DOMContentLoaded", async function () {
   try {
     console.log("Initializing app...");
 
-    // Add validateMinAmount function
-    window.validateMinAmount = function (input) {
-      if (input.value && parseFloat(input.value) < 0.001) {
-        input.setCustomValidity("Minimum deposit is 0.001 ETH");
-        document.getElementById("status").innerText =
-          "⚠️ Minimum deposit is 0.001 ETH";
-      } else {
-        input.setCustomValidity("");
-        document.getElementById("status").innerText = "";
-      }
-    };
+    // Set up connect button
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) {
+      connectBtn.addEventListener("click", connectWallet);
+    }
 
     // Set up deposit button
     const depositBtn = document.getElementById("depositBtn");
     if (depositBtn) {
-      depositBtn.onclick = function () {
-        // Show deposit modal if it exists
-        const modal = document.getElementById("depositModal");
-        if (modal && typeof modal.showModal === "function") {
-          modal.showModal();
+      depositBtn.addEventListener("click", function () {
+        if (window.connectAndDeposit) {
+          window.connectAndDeposit();
         } else {
-          // Fallback if modal doesn't exist or showModal not supported
-          if (window.connectAndDeposit) {
-            window.connectAndDeposit();
-          } else {
-            console.error("connectAndDeposit function not available");
-            document.getElementById("status").innerText =
-              "⚠️ Deposit functionality not available";
-          }
+          console.error("connectAndDeposit function not available");
         }
-      };
+      });
+    }
+
+    // Check if already connected
+    const isConnected = await checkIfConnected();
+
+    // Show/hide buttons based on connection status
+    if (isConnected) {
+      if (connectBtn) connectBtn.style.display = "none";
+      if (depositBtn) depositBtn.style.display = "inline-block";
+    } else {
+      if (connectBtn) connectBtn.style.display = "inline-block";
+      if (depositBtn) depositBtn.style.display = "none";
     }
 
     // Initialize read-only functionality

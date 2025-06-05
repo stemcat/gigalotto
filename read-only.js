@@ -451,6 +451,7 @@ function updateUIWithBasicData(
     (parseFloat(last24hUsdFormatted) / parseFloat(jackpotUsdFormatted)) *
     parseFloat(totalPoolEth)
   ).toFixed(6);
+
   const eth24hElement = document.getElementById("eth24h");
   if (eth24hElement) {
     eth24hElement.innerText = last24hEth;
@@ -459,14 +460,7 @@ function updateUIWithBasicData(
   // Update progress bar
   const progressFill = document.getElementById("progressFill");
   if (progressFill) {
-    // Get current width to avoid animation if not needed
-    const currentWidth = progressFill.style.width;
-    const newWidth = `${Math.min(percentComplete, 100)}%`;
-
-    if (currentWidth !== newWidth) {
-      console.log("Setting progress bar width to:", percentComplete + "%");
-      progressFill.style.width = newWidth;
-    }
+    progressFill.style.width = `${Math.min(percentComplete, 100)}%`;
   }
 
   // Update status message based on percent complete
