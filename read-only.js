@@ -213,32 +213,28 @@ export async function loadJackpotInfo() {
             timestamp: parseInt(deposit.blockTimestamp),
           }));
 
-          // Process deposits to get top depositors
-          let topDepositors = {};
+          // Group by address and sum amounts
+          const depositorMap = new Map();
+          allDeposits.forEach((deposit) => {
+            const currentAmount = depositorMap.get(deposit.depositor) || 0;
+            depositorMap.set(
+              deposit.depositor,
+              currentAmount + parseFloat(deposit.amount)
+            );
+          });
 
-          for (const deposit of data.data.newDeposits) {
-            const amount = BigInt(deposit.amount);
-
-            // Track deposits by user for leaderboard
-            const depositor = deposit.depositor.toLowerCase();
-            if (!topDepositors[depositor]) {
-              topDepositors[depositor] = BigInt(0);
-            }
-            topDepositors[depositor] += amount;
-          }
-
-          // Convert topDepositors to array for leaderboard
-          const leaderboardData = Object.entries(topDepositors).map(
+          // Convert to array and sort by amount
+          const leaderboardData = Array.from(depositorMap.entries()).map(
             ([address, amount]) => ({
-              address: address,
-              amount: ethers.formatEther(amount.toString()),
+              address,
+              amount: amount.toString(),
             })
           );
 
-          // Sort by amount descending
-          leaderboardData.sort(
-            (a, b) => parseFloat(b.amount) - parseFloat(a.amount)
-          );
+          // Sort by amount (highest first)
+          leaderboardData.sort((a, b) => {
+            return parseFloat(b.amount) - parseFloat(a.amount);
+          });
 
           // Update leaderboard
           updateLeaderboardFromData(leaderboardData.slice(0, 10));
@@ -364,6 +360,7 @@ export async function tryDirectContractCall() {
         const entry = await contract.getEntry(i);
         entries.push({
           address: entry.user,
+          amount: ethers.formatEther(await contract.userDeposits(entry.user)),
         });
       }
 
@@ -430,6 +427,9 @@ function updateUIWithBasicData(
   if (progressPercentEl) {
     progressPercentEl.innerText = `${percentComplete.toFixed(2)}%`;
   }
+
+  // Update status message based on percent complete
+  updateStatusMessageFromPercent(percentComplete);
 
   console.log("UI updated with basic data:", {
     totalPoolEth,
@@ -649,34 +649,53 @@ export function clearCache() {
 // Make updateLeaderboardFromData available globally
 window.updateLeaderboardFromData = updateLeaderboardFromData;
 
-// Check if user is the admin
-function isAdmin(address) {
-  const adminAddress = "0xe9D99D4380e80DE290D10F741F77728954fe2d81";
-  return address && address.toLowerCase() === adminAddress.toLowerCase();
-}
-
-// Update user info and show/hide admin section
-async function updateUserInfo() {
-  const userAccount = getUserAccount();
-  if (!userAccount) {
-    document.getElementById("userDashboard").style.display = "none";
-    document.getElementById("adminSection").style.display = "none";
+// Make changeTimeframe available globally
+window.changeTimeframe = function(timeframe) {
+  console.log("Changing timeframe to:", timeframe);
+  
+  // Get cached data
+  const cachedData = localStorage.getItem("contractData");
+  if (!cachedData) {
+    console.error("No cached data available for timeframe filtering");
     return;
   }
-
-  // Update user dashboard
-  updateUserDashboard();
-
-  // Check if user is admin and show admin section
-  if (isAdmin(userAccount)) {
-    const adminSection = document.getElementById("adminSection");
-    if (adminSection) {
-      adminSection.style.display = "block";
+  
+  try {
+    const data = JSON.parse(cachedData);
+    if (!data.allDeposits) {
+      console.error("No deposit data available for timeframe filtering");
+      return;
     }
-  } else {
-    const adminSection = document.getElementById("adminSection");
-    if (adminSection) {
-      adminSection.style.display = "none";
-    }
+    
+    // Filter deposits by timeframe
+    const filteredDeposits = filterEntriesByTimeframe(data.allDeposits, timeframe);
+    
+    // Group by address and sum amounts
+    const depositorMap = new Map();
+    filteredDeposits.forEach((deposit) => {
+      const currentAmount = depositorMap.get(deposit.depositor) || 0;
+      depositorMap.set(
+        deposit.depositor,
+        currentAmount + parseFloat(deposit.amount)
+      );
+    });
+    
+    // Convert to array and sort by amount
+    const leaderboardData = Array.from(depositorMap.entries()).map(
+      ([address, amount]) => ({
+        address,
+        amount: amount.toString(),
+      })
+    );
+    
+    // Sort by amount (highest first)
+    leaderboardData.sort((a, b) => {
+      return parseFloat(b.amount) - parseFloat(a.amount);
+    });
+    
+    // Update leaderboard with filtered data
+    updateLeaderboardFromData(leaderboardData.slice(0, 10), timeframe);
+  } catch (e) {
+    console.error("Error filtering by timeframe:", e);
   }
-}
+};

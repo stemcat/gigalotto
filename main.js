@@ -270,9 +270,10 @@ window.addEventListener("load", async () => {
   }
 
   // Set up withdraw button
-  document
-    .getElementById("userWithdrawBtn")
-    .addEventListener("click", withdraw);
+  const userWithdrawBtn = document.getElementById("userWithdrawBtn");
+  if (userWithdrawBtn) {
+    userWithdrawBtn.addEventListener("click", withdraw);
+  }
 
   // Set up admin buttons if they exist
   const requestDrawBtn = document.getElementById("requestDrawBtn");
