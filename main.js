@@ -25,55 +25,58 @@ window.changeTimeframe = function (timeframe) {
 window.connectWallet = connectWallet;
 window.debugWalletConnection = debugWalletConnection;
 
-// Document ready function
+// Initialize the app
 document.addEventListener("DOMContentLoaded", async function () {
-  console.log("Document ready, initializing app...");
-
   try {
-    // Verify contract address first
-    console.log("Verifying contract address:", contractAddress);
-    const contractVerified = await verifyContractAddress();
-    console.log("Contract verified:", contractVerified);
+    console.log("Initializing app...");
 
-    if (contractVerified) {
-      // Check if already connected
-      const alreadyConnected = await checkIfConnected();
-      console.log("Already connected:", alreadyConnected);
-
-      // Set up account change listeners
-      setupAccountChangeListeners();
-
-      // Set up auto-refresh for jackpot info
-      setupAutoRefresh();
-
-      // Set up connect button
-      const connectBtn = document.getElementById("connectBtn");
-      if (connectBtn) {
-        connectBtn.onclick = async function () {
-          const account = getUserAccount();
-          if (!account) {
-            // Not connected, try to connect
-            await connectWallet();
-          } else {
-            // Already connected, show deposit form
-            document.getElementById("depositModal").showModal();
-          }
-        };
-      }
-
-      // Set up deposit button in modal
-      const depositBtn = document.querySelector(
-        "#depositModal button:last-child"
-      );
-      if (depositBtn) {
-        depositBtn.onclick = function () {
+    // Set up deposit button
+    const depositBtn = document.getElementById("depositBtn");
+    if (depositBtn) {
+      depositBtn.onclick = function () {
+        // Show deposit modal if it exists
+        const modal = document.getElementById("depositModal");
+        if (modal && modal.showModal) {
+          modal.showModal();
+        } else {
+          // Fallback if modal doesn't exist
           window.connectAndDeposit();
-        };
-      }
-    } else {
-      console.error("Contract verification failed");
-      document.getElementById("status").innerText =
-        "⚠️ Contract verification failed. Please check the contract address.";
+        }
+      };
+    }
+
+    // Set up connect button
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) {
+      connectBtn.onclick = async function () {
+        if (window.ethereum) {
+          try {
+            await window.ethereum.request({ method: "eth_requestAccounts" });
+            document.getElementById("status").innerText =
+              "✅ Wallet connected!";
+
+            // Hide connect button, show deposit button
+            connectBtn.style.display = "none";
+            if (depositBtn) depositBtn.style.display = "inline-block";
+
+            // Update UI
+            if (typeof window.updateUI === "function") {
+              window.updateUI();
+            }
+          } catch (error) {
+            document.getElementById("status").innerText =
+              "⚠️ Connection failed: " + error.message;
+          }
+        } else {
+          document.getElementById("status").innerText =
+            "⚠️ MetaMask not detected";
+        }
+      };
+    }
+
+    // Initialize other components
+    if (typeof window.initializeReadOnly === "function") {
+      window.initializeReadOnly();
     }
   } catch (error) {
     console.error("Initialization error:", error);

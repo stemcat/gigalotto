@@ -479,49 +479,43 @@ function updateUIWithBasicData(
   last24hUsdFormatted,
   percentComplete
 ) {
-  // Update total pool display (formerly jackpot)
-  const jackpotEl = document.getElementById("jackpot");
-  if (jackpotEl) {
-    jackpotEl.innerHTML = `<strong>${totalPoolEth}</strong> ETH`;
-  }
-
-  // Update USD value display
-  const usdValueEl = document.getElementById("usdValue");
-  if (usdValueEl) {
-    usdValueEl.innerText = `$${jackpotUsdFormatted}`;
-  }
-
-  // Update 24h deposit display
-  const usd24hEl = document.getElementById("usd24h");
-  if (usd24hEl) {
-    usd24hEl.innerText = `$${last24hUsdFormatted}`;
-  }
-
-  // Update progress bar
-  const progressFillEl = document.getElementById("progressFill");
-  if (progressFillEl) {
-    progressFillEl.style.width = `${Math.min(percentComplete, 100)}%`;
-    console.log(
-      "Setting progress bar width to:",
-      `${Math.min(percentComplete, 100)}%`
-    );
-  }
-
-  // Update progress percentage if it exists
-  const progressPercentEl = document.getElementById("progressPercent");
-  if (progressPercentEl) {
-    progressPercentEl.innerText = `${percentComplete.toFixed(2)}%`;
-  }
-
-  // Update status message based on percent complete
-  updateStatusMessageFromPercent(percentComplete);
-
   console.log("UI updated with basic data:", {
     totalPoolEth,
     jackpotUsdFormatted,
     last24hUsdFormatted,
     percentComplete,
   });
+
+  // Update jackpot display
+  document.getElementById(
+    "jackpot"
+  ).innerHTML = `<strong>${totalPoolEth} ETH ($${jackpotUsdFormatted})</strong>`;
+
+  // Update 24h deposits in ETH instead of USD
+  const last24hEth = (
+    (parseFloat(last24hUsdFormatted) / parseFloat(jackpotUsdFormatted)) *
+    parseFloat(totalPoolEth)
+  ).toFixed(6);
+  const eth24hElement = document.getElementById("eth24h");
+  if (eth24hElement) {
+    eth24hElement.innerText = last24hEth;
+  }
+
+  // Update progress bar
+  const progressFill = document.getElementById("progressFill");
+  if (progressFill) {
+    // Get current width to avoid animation if not needed
+    const currentWidth = progressFill.style.width;
+    const newWidth = `${Math.min(percentComplete, 100)}%`;
+
+    if (currentWidth !== newWidth) {
+      console.log("Setting progress bar width to:", percentComplete + "%");
+      progressFill.style.width = newWidth;
+    }
+  }
+
+  // Update status message based on percent complete
+  updateStatusMessageFromPercent(percentComplete);
 }
 
 // Use cached data if available

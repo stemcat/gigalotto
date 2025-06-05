@@ -857,3 +857,54 @@ window.setFee = async function () {
 
 // Make withdrawWinnings available globally
 window.withdrawWinnings = withdrawWinnings;
+
+// Initialize the page
+export async function initPage() {
+  try {
+    // Check if MetaMask is installed
+    if (window.ethereum) {
+      // Set up event listeners
+      const connectBtn = document.getElementById("connectBtn");
+      if (connectBtn) {
+        connectBtn.addEventListener("click", connectWallet);
+      }
+
+      const depositBtn = document.getElementById("depositBtn");
+      if (depositBtn) {
+        depositBtn.addEventListener("click", function () {
+          // Show deposit modal
+          const modal = document.getElementById("depositModal");
+          if (modal && modal.showModal) {
+            modal.showModal();
+          } else {
+            // Fallback if modal doesn't exist
+            connectAndDeposit();
+          }
+        });
+      }
+
+      // Make connectAndDeposit available globally
+      window.connectAndDeposit = connectAndDeposit;
+
+      // Check if already connected
+      const accounts = await window.ethereum.request({
+        method: "eth_accounts",
+      });
+      if (accounts.length > 0) {
+        userAccount = accounts[0];
+        document.getElementById("connectBtn").style.display = "none";
+        document.getElementById("depositBtn").style.display = "inline-block";
+        document.getElementById("userDashboard").style.display = "block";
+        updateUserDashboard();
+      }
+    } else {
+      document.getElementById("status").innerText =
+        "⚠️ MetaMask not detected. Please install MetaMask to use this app.";
+    }
+  } catch (error) {
+    console.error("Initialization error:", error);
+  }
+}
+
+// Call initPage when the DOM is loaded
+document.addEventListener("DOMContentLoaded", initPage);

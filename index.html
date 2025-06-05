@@ -195,10 +195,21 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
+        position: relative;
+      }
+
+      .leaderboard-header h3 {
+        text-align: center;
+        width: 100%;
+        margin: 0;
+        color: #00ffff;
+        text-shadow: 0 0 5px #ff00ff;
       }
 
       .timeframe-selector {
+        position: absolute;
+        right: 0;
         font-family: "Press Start 2P", cursive;
         font-size: 0.6em;
         background-color: #222;
@@ -417,15 +428,15 @@
         <div class="progress-bar">
           <div class="progress-fill" id="progressFill" style="width: 0%"></div>
         </div>
-        <div class="deposits-24h">
+        <div class="deposits-24h" style="margin-top: 15px">
           <strong>🔥 Last 24h Deposits:</strong>
-          <span id="usd24h">Loading...</span> USD
+          <span id="eth24h">Loading...</span> ETH
         </div>
       </div>
 
       <div class="leaderboard-container">
         <div class="leaderboard-header">
-          <h3>Top Depositors</h3>
+          <h3 style="margin: 0 auto">Top Depositors</h3>
           <select
             id="timeframeSelector"
             class="timeframe-selector"
@@ -449,6 +460,7 @@
           step="0.001"
           onblur="validateMinAmount(this)"
         />
+        <button id="depositBtn">💰 Deposit</button>
         <button id="connectBtn">🔌 Connect Wallet</button>
       </div>
 
