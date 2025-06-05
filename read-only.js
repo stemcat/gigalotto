@@ -568,32 +568,15 @@ function updateLeaderboardFromData(
   const leaderboardEl = document.getElementById("leaderboard");
   if (!leaderboardEl) return;
 
-  // Create HTML for leaderboard
   let html = `
     <div class="leaderboard-header">
-      <div class="timeframe-selector">
-        <select id="timeframeSelect" onchange="window.changeTimeframe(this.value)">
-          <option value="allTime" ${
-            selectedTimeframe === "allTime" ? "selected" : ""
-          }>All Time</option>
-          <option value="weekly" ${
-            selectedTimeframe === "weekly" ? "selected" : ""
-          }>This Week</option>
-          <option value="daily" ${
-            selectedTimeframe === "daily" ? "selected" : ""
-          }>Today</option>
-        </select>
-      </div>
+      <h3>Top Depositors</h3>
     </div>
-    <div class="leaderboard-table">
-      <div class="leaderboard-row header">
-        <span>Address</span>
-        <span>Amount (ETH)</span>
-      </div>
+    <div class="leaderboard-content">
   `;
 
   if (topDepositors && topDepositors.length > 0) {
-    topDepositors.forEach((entry) => {
+    topDepositors.forEach((entry, index) => {
       // Format address for display
       const shortAddress = `${entry.address.substring(
         0,
@@ -602,15 +585,27 @@ function updateLeaderboardFromData(
 
       html += `
         <div class="leaderboard-row">
-          <span>${shortAddress}</span>
-          <span>${parseFloat(entry.amount).toFixed(4)} ETH</span>
+          <span class="leaderboard-rank">${index + 1}</span>
+          <a 
+            id="leaderboard-address-${index}" 
+            class="leaderboard-address" 
+            href="https://sepolia.etherscan.io/address/${entry.address}" 
+            target="_blank"
+            data-address="${entry.address}"
+          >${shortAddress}</a>
+          <span class="leaderboard-amount">${parseFloat(entry.amount).toFixed(
+            4
+          )} ETH</span>
         </div>
       `;
     });
+
+    // Try to resolve ENS names after rendering
+    setTimeout(() => resolveLeaderboardENSNames(topDepositors), 100);
   } else {
     html += `
       <div class="leaderboard-row empty">
-        <span colspan="2">No deposits for this timeframe</span>
+        <span colspan="3">No deposits for this timeframe</span>
       </div>
     `;
   }
@@ -619,9 +614,11 @@ function updateLeaderboardFromData(
   leaderboardEl.innerHTML = html;
 }
 
-// Function to resolve ENS names for leaderboard
+// Improved ENS resolution function
 async function resolveLeaderboardENSNames(topDepositors) {
   try {
+    console.log("Resolving ENS names for leaderboard...");
+
     // Use a public RPC endpoint that allows CORS
     const provider = new ethers.JsonRpcProvider(
       "https://eth-mainnet.g.alchemy.com/v2/demo"
@@ -634,12 +631,16 @@ async function resolveLeaderboardENSNames(topDepositors) {
       if (addressElement) {
         const address = addressElement.getAttribute("data-address");
         try {
+          console.log(`Trying to resolve ENS for ${address}...`);
           // Try to resolve ENS name
           const ensName = await provider.lookupAddress(address);
+          console.log(`ENS lookup result for ${address}:`, ensName);
+
           if (ensName) {
             addressElement.innerText = ensName;
             // Keep the link to Etherscan
             addressElement.href = `https://sepolia.etherscan.io/address/${address}`;
+            console.log(`Set ENS name ${ensName} for address ${address}`);
           }
         } catch (error) {
           console.log(`Could not resolve ENS for ${address}:`, error);
@@ -650,6 +651,54 @@ async function resolveLeaderboardENSNames(topDepositors) {
     console.error("Error resolving ENS names:", error);
   }
 }
+
+// Add CSS for leaderboard
+const style = document.createElement("style");
+style.textContent = `
+  .leaderboard-content {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 10px;
+  }
+  
+  .leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    border-bottom: 1px solid #444;
+  }
+  
+  .leaderboard-rank {
+    width: 30px;
+    text-align: center;
+    font-weight: bold;
+    color: #ffcc00;
+  }
+  
+  .leaderboard-address {
+    flex-grow: 1;
+    text-align: left;
+    margin: 0 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #00ffff;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  
+  .leaderboard-address:hover {
+    color: #ff00ff;
+    text-decoration: underline;
+  }
+  
+  .leaderboard-amount {
+    text-align: right;
+    font-weight: bold;
+    color: #ffffff;
+  }
+`;
+document.head.appendChild(style);
 
 // Filter entries by timeframe
 function filterEntriesByTimeframe(entries, timeframe) {

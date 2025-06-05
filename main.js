@@ -60,6 +60,16 @@ document.addEventListener("DOMContentLoaded", async function () {
           }
         };
       }
+
+      // Set up deposit button in modal
+      const depositBtn = document.querySelector(
+        "#depositModal button:last-child"
+      );
+      if (depositBtn) {
+        depositBtn.onclick = function () {
+          window.connectAndDeposit();
+        };
+      }
     } else {
       console.error("Contract verification failed");
       document.getElementById("status").innerText =

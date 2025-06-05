@@ -313,10 +313,17 @@ export async function checkWinnerAndDraw() {
   if (!contract || !userAccount) return;
 
   try {
-    // Check if user is admin - improved admin check
-    const owner = await contract.owner();
-    const isUserAdmin = owner.toLowerCase() === userAccount.toLowerCase();
-    console.log("Admin check:", { owner, userAccount, isAdmin: isUserAdmin });
+    // Check if user is admin - hardcode the admin address for now
+    const adminAddress = "0xe9D99D4380e80DE290D10F741F77728954fe2d81";
+    const isUserAdmin =
+      userAccount.toLowerCase() === adminAddress.toLowerCase();
+
+    console.log("Admin check:", {
+      userAccount,
+      adminAddress,
+      isAdmin: isUserAdmin,
+      match: userAccount.toLowerCase() === adminAddress.toLowerCase(),
+    });
 
     if (isUserAdmin) {
       console.log("User is admin, showing admin section");
@@ -330,6 +337,7 @@ export async function checkWinnerAndDraw() {
           const adminDiv = document.createElement("div");
           adminDiv.id = "adminSection";
           adminDiv.className = "admin-section";
+          adminDiv.style.display = "block"; // Ensure it's visible
 
           // Get collected fees
           let collectedFees = "0";
@@ -370,6 +378,9 @@ export async function checkWinnerAndDraw() {
           await checkCanDraw();
         }
       } else {
+        // Make sure admin section is visible
+        adminSection.style.display = "block";
+
         // Update collected fees if admin section already exists
         const collectedFeesElement = document.getElementById("collectedFees");
         if (collectedFeesElement) {
