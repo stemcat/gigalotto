@@ -404,17 +404,29 @@ export async function checkWinnerAndDraw() {
               <button id="requestDrawBtn" class="admin-btn" onclick="window.requestDraw()">Request Draw</button>
               <button id="selectNewWinnerBtn" class="admin-btn" onclick="window.selectNewWinner()">Select New Winner</button>
               <button id="withdrawFeesBtn" class="admin-btn" onclick="window.withdrawFees()">Withdraw Fees (${collectedFees} ETH)</button>
+              <button id="refreshFeesBtn" class="admin-btn" onclick="window.updateAdminFeesDisplay()">Refresh Fees</button>
             </div>
           `;
+
+          console.log(
+            "Admin section HTML created with fees:",
+            collectedFees,
+            "ETH"
+          );
           dashboard.after(adminDiv);
 
           // Check if draw is possible
           await checkCanDraw();
 
-          // Set up periodic fee updates every 10 seconds
+          // Update fees display immediately after creation
+          setTimeout(async () => {
+            await updateAdminFeesDisplay();
+          }, 500);
+
+          // Set up periodic fee updates every 15 seconds (less frequent to avoid rate limits)
           setInterval(async () => {
             await updateAdminFeesDisplay();
-          }, 10000);
+          }, 15000);
         }
       } else {
         // Make sure admin section is visible
@@ -840,8 +852,11 @@ export async function checkCanDraw() {
   }
 }
 
-// Make checkCanDraw available globally
+// Make admin functions available globally
 window.checkCanDraw = checkCanDraw;
+window.withdrawFees = withdrawFees;
+window.selectNewWinner = selectNewWinner;
+window.requestDraw = requestDraw;
 
 // Add this function to check collected fees
 export async function checkCollectedFees() {
@@ -861,21 +876,42 @@ export async function updateAdminFeesDisplay() {
   const collectedFeesElement = document.getElementById("collectedFees");
   const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
 
-  if (!collectedFeesElement || !contract) return;
+  console.log("updateAdminFeesDisplay called");
+  console.log("collectedFeesElement found:", !!collectedFeesElement);
+  console.log("contract exists:", !!contract);
+
+  if (!collectedFeesElement) {
+    console.error("collectedFees element not found in DOM");
+    return "0";
+  }
+
+  if (!contract) {
+    console.error("Contract not initialized");
+    collectedFeesElement.innerText = "Contract not connected";
+    return "0";
+  }
 
   try {
-    console.log("Updating admin fees display...");
+    console.log("Fetching fees from contract...");
     const feesWei = await contract.collectedFees();
-    const collectedFees = ethers.formatEther(feesWei);
+    console.log("Fees in Wei:", feesWei.toString());
 
-    console.log("Current collected fees:", collectedFees, "ETH");
+    const collectedFees = ethers.formatEther(feesWei);
+    console.log("Formatted fees:", collectedFees, "ETH");
 
     // Update the display
     collectedFeesElement.innerText = `${collectedFees} ETH`;
+    console.log(
+      "Updated collectedFees element text to:",
+      collectedFeesElement.innerText
+    );
 
     // Update the withdraw button
     if (withdrawFeesBtn) {
       withdrawFeesBtn.innerText = `Withdraw Fees (${collectedFees} ETH)`;
+      console.log("Updated withdraw button text");
+    } else {
+      console.warn("withdrawFeesBtn not found");
     }
 
     return collectedFees;
