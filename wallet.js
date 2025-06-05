@@ -257,6 +257,14 @@ export async function updateUI() {
     // Get total pool
     const totalPool = await contract.totalPool();
 
+    // Get withdrawable amount
+    let withdrawable = 0n;
+    try {
+      withdrawable = await contract.withdrawableAmounts(userAccount);
+    } catch (e) {
+      console.log("No withdrawableAmounts function, using 0");
+    }
+
     // Calculate win chance
     let winChance = 0;
     if (totalPool > 0) {
@@ -277,6 +285,20 @@ export async function updateUI() {
     document.getElementById("userDeposit").innerText =
       ethers.formatEther(deposit) + " ETH";
     document.getElementById("winChance").innerText = winChanceDisplay;
+
+    // Update withdrawable amount if element exists
+    const withdrawableEl = document.getElementById("withdrawableAmount");
+    if (withdrawableEl) {
+      withdrawableEl.innerText = ethers.formatEther(withdrawable) + " ETH";
+    }
+
+    // Show withdrawal section if there's something to withdraw
+    const withdrawalSection = document.getElementById("withdrawalSection");
+    if (withdrawalSection) {
+      withdrawalSection.style.display =
+        Number(withdrawable) > 0 ? "block" : "none";
+    }
+
     document.getElementById("userDashboard").style.display = "block";
 
     // Check if user is winner
@@ -291,20 +313,32 @@ export async function checkWinnerAndDraw() {
   if (!contract || !userAccount) return;
 
   try {
-    // Check if user is admin
-    if (await isAdmin(userAccount)) {
+    // Check if user is admin - improved admin check
+    const owner = await contract.owner();
+    const isUserAdmin = owner.toLowerCase() === userAccount.toLowerCase();
+    console.log("Admin check:", { owner, userAccount, isAdmin: isUserAdmin });
+
+    if (isUserAdmin) {
+      console.log("User is admin, showing admin section");
       // Show admin section
-      const adminSection = document.getElementById("adminSection");
+      let adminSection = document.getElementById("adminSection");
       if (!adminSection) {
         // Create admin section if it doesn't exist
         const dashboard = document.getElementById("userDashboard");
         if (dashboard) {
+          console.log("Creating admin section");
           const adminDiv = document.createElement("div");
           adminDiv.id = "adminSection";
           adminDiv.className = "admin-section";
 
           // Get collected fees
-          const collectedFees = await checkCollectedFees();
+          let collectedFees = "0";
+          try {
+            const feesWei = await contract.collectedFees();
+            collectedFees = ethers.formatEther(feesWei);
+          } catch (feeError) {
+            console.error("Error getting collected fees:", feeError);
+          }
 
           adminDiv.innerHTML = `
             <h3>Admin Controls</h3>
@@ -331,18 +365,26 @@ export async function checkWinnerAndDraw() {
             </div>
           `;
           dashboard.after(adminDiv);
+
+          // Check if draw is possible
+          await checkCanDraw();
         }
       } else {
         // Update collected fees if admin section already exists
         const collectedFeesElement = document.getElementById("collectedFees");
         if (collectedFeesElement) {
-          const collectedFees = await checkCollectedFees();
-          collectedFeesElement.innerText = `${collectedFees} ETH`;
+          try {
+            const feesWei = await contract.collectedFees();
+            const collectedFees = ethers.formatEther(feesWei);
+            collectedFeesElement.innerText = `${collectedFees} ETH`;
+          } catch (feeError) {
+            console.error("Error updating collected fees:", feeError);
+          }
         }
-      }
 
-      // Check if draw is possible
-      await checkCanDraw();
+        // Check if draw is possible
+        await checkCanDraw();
+      }
     }
 
     // Check if user is winner
@@ -727,3 +769,75 @@ export async function checkCollectedFees() {
     return "0";
   }
 }
+
+// Make admin functions available globally
+window.requestDraw = async function () {
+  try {
+    document.getElementById("status").innerText = "⏳ Requesting draw...";
+    const tx = await contract.requestDraw();
+    await tx.wait();
+    document.getElementById("status").innerText = "✅ Draw requested!";
+    updateUI();
+  } catch (e) {
+    console.error("Draw error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Draw failed: " + e.message;
+  }
+};
+
+window.withdrawFees = async function () {
+  try {
+    document.getElementById("status").innerText = "⏳ Withdrawing fees...";
+    const tx = await contract.withdrawFees();
+    await tx.wait();
+    document.getElementById("status").innerText =
+      "✅ Fees withdrawn successfully!";
+    updateUI();
+  } catch (e) {
+    console.error("Withdraw fees error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Withdraw fees failed: " + e.message;
+  }
+};
+
+window.selectNewWinner = async function () {
+  try {
+    document.getElementById("status").innerText = "⏳ Selecting new winner...";
+    const tx = await contract.selectNewWinner();
+    await tx.wait();
+    document.getElementById("status").innerText =
+      "✅ New winner selection initiated!";
+    updateUI();
+  } catch (e) {
+    console.error("Select new winner error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Select new winner failed: " + e.message;
+  }
+};
+
+window.setFee = async function () {
+  try {
+    const feeInput = document.getElementById("feeInput");
+    const feePercent = parseInt(feeInput.value);
+
+    if (isNaN(feePercent) || feePercent < 0 || feePercent > 10) {
+      document.getElementById("status").innerText =
+        "⚠️ Fee must be between 0-10%";
+      return;
+    }
+
+    document.getElementById("status").innerText = "⏳ Setting fee...";
+    const tx = await contract.setFeePercent(feePercent);
+    await tx.wait();
+    document.getElementById(
+      "status"
+    ).innerText = `✅ Fee set to ${feePercent}%`;
+  } catch (e) {
+    console.error("Set fee error:", e);
+    document.getElementById("status").innerText =
+      "⚠️ Failed to set fee: " + e.message;
+  }
+};
+
+// Make withdrawWinnings available globally
+window.withdrawWinnings = withdrawWinnings;

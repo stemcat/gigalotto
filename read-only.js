@@ -479,7 +479,7 @@ function updateUIWithBasicData(
   last24hUsdFormatted,
   percentComplete
 ) {
-  // Update jackpot display
+  // Update total pool display (formerly jackpot)
   const jackpotEl = document.getElementById("jackpot");
   if (jackpotEl) {
     jackpotEl.innerHTML = `<strong>${totalPoolEth}</strong> ETH`;
@@ -497,10 +497,14 @@ function updateUIWithBasicData(
     usd24hEl.innerText = `$${last24hUsdFormatted}`;
   }
 
-  // Update progress bar if it exists
-  const progressBarEl = document.getElementById("progressBar");
-  if (progressBarEl) {
-    progressBarEl.style.width = `${Math.min(percentComplete, 100)}%`;
+  // Update progress bar
+  const progressFillEl = document.getElementById("progressFill");
+  if (progressFillEl) {
+    progressFillEl.style.width = `${Math.min(percentComplete, 100)}%`;
+    console.log(
+      "Setting progress bar width to:",
+      `${Math.min(percentComplete, 100)}%`
+    );
   }
 
   // Update progress percentage if it exists
@@ -620,7 +624,7 @@ async function resolveLeaderboardENSNames(topDepositors) {
   try {
     // Use a public RPC endpoint that allows CORS
     const provider = new ethers.JsonRpcProvider(
-      "https://eth-sepolia.public.blastapi.io"
+      "https://eth-mainnet.g.alchemy.com/v2/demo"
     );
 
     for (let i = 0; i < topDepositors.length; i++) {
@@ -796,34 +800,96 @@ export function changeTimeframe(timeframe) {
 }
 
 // Make testAllConnections available globally
-window.testAllConnections = function () {
-  console.clear();
-  console.log("=== TESTING ALL CONNECTIONS ===");
+window.testAllConnections = async function () {
+  console.log("Testing all connections...");
+  document.getElementById("status").innerText = "⏳ Testing connections...";
 
-  // 1. Test contract verification
-  verifyContractAddress()
-    .then((verified) => {
-      console.log("Contract verification result:", verified);
+  let results = {
+    subgraph: false,
+    contract: false,
+    provider: false,
+  };
 
-      // 2. Test subgraph connection
-      debugSubgraphConnection();
-
-      // 3. Test direct contract call
-      return tryDirectContractCall(true);
-    })
-    .then((directCallResult) => {
-      console.log("Direct contract call result:", directCallResult);
-
-      // 4. Test wallet connection if MetaMask is available
-      if (window.ethereum) {
-        debugWalletConnection();
-      } else {
-        console.error("MetaMask not available for testing");
-      }
-    })
-    .catch((error) => {
-      console.error("Test failed:", error);
+  // Test subgraph
+  try {
+    console.log("Testing subgraph connection...");
+    const response = await fetch(SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{ _meta { block { number } } }`,
+      }),
     });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.data && data.data._meta) {
+        results.subgraph = true;
+        console.log("Subgraph connection successful:", data);
+      }
+    }
+  } catch (e) {
+    console.error("Subgraph test failed:", e);
+  }
+
+  // Test contract direct call
+  try {
+    console.log("Testing direct contract connection...");
+    const provider = new ethers.JsonRpcProvider(
+      "https://eth-sepolia.public.blastapi.io"
+    );
+    const contract = new ethers.Contract(contractAddress, abi, provider);
+    const totalPool = await contract.totalPool();
+
+    if (totalPool !== undefined) {
+      results.contract = true;
+      console.log(
+        "Contract connection successful:",
+        ethers.formatEther(totalPool),
+        "ETH"
+      );
+    }
+  } catch (e) {
+    console.error("Contract test failed:", e);
+  }
+
+  // Test provider
+  try {
+    console.log("Testing provider connection...");
+    const provider = new ethers.JsonRpcProvider(
+      "https://eth-sepolia.public.blastapi.io"
+    );
+    const blockNumber = await provider.getBlockNumber();
+
+    if (blockNumber > 0) {
+      results.provider = true;
+      console.log("Provider connection successful, block:", blockNumber);
+    }
+  } catch (e) {
+    console.error("Provider test failed:", e);
+  }
+
+  // Update status with results
+  document.getElementById("status").innerHTML = `
+    Connection test results:<br>
+    Subgraph: ${results.subgraph ? "✅" : "❌"}<br>
+    Contract: ${results.contract ? "✅" : "❌"}<br>
+    Provider: ${results.provider ? "✅" : "❌"}<br>
+  `;
+
+  // Try to load data with the best available method
+  if (results.subgraph) {
+    console.log("Using subgraph to load data...");
+    loadJackpotInfo();
+  } else if (results.contract) {
+    console.log("Using direct contract call to load data...");
+    tryDirectContractCall(true);
+  } else {
+    console.log("All connection methods failed");
+    useCachedDataIfAvailable();
+  }
+
+  return results;
 };
 
 // Import the debugWalletConnection function from wallet.js

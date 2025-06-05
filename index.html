@@ -359,19 +359,25 @@
 
     <div class="container">
       <div class="jackpot-display">
-        <strong>💰 Jackpot Pool:</strong> <span id="jackpot">Loading...</span
+        <strong>💰 Total Pool:</strong>
+        <span id="jackpot">
+          <div class="loading-animation">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div> </span
         ><br />
         <div id="holdTimerSection" style="display: none">
           <strong>📈 Holding Above Target For:</strong>
           <span id="holdTimer">--:--:--</span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" id="progressFill"></div>
+          <div class="progress-fill" id="progressFill" style="width: 0%"></div>
         </div>
       </div>
 
       <div class="jackpot-display">
-        <strong>🔥 USD Deposited Last 24h:</strong>
+        <strong>🔥 Last 24h Deposits:</strong>
         <span id="usd24h">Loading...</span> USD
       </div>
 
@@ -405,10 +411,6 @@
         <p>
           <strong>Available to Withdraw:</strong>
           <span id="withdrawableAmount">0</span> ETH
-        </p>
-        <p>
-          <strong>Unlock Date:</strong>
-          <span id="unlockDate">-</span>
         </p>
         <div id="withdrawalSection" style="display: none; margin-top: 15px">
           <input
@@ -788,3 +790,42 @@
     Force Direct Contract Call
   </button>
 </div>
+
+<style>
+  /* Loading animation styles */
+  .loading-animation {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .loading-animation .dot {
+    width: 8px;
+    height: 8px;
+    margin: 0 4px;
+    background-color: #ffff00;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 1.5s infinite ease-in-out;
+  }
+
+  .loading-animation .dot:nth-child(2) {
+    animation-delay: 0.5s;
+  }
+
+  .loading-animation .dot:nth-child(3) {
+    animation-delay: 1s;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      transform: scale(0.5);
+      opacity: 0.5;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+</style>
