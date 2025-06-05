@@ -322,11 +322,21 @@ export async function checkWinnerAndDraw() {
       userAccount,
       adminAddress,
       isAdmin: isUserAdmin,
-      match: userAccount.toLowerCase() === adminAddress.toLowerCase(),
     });
 
     if (isUserAdmin) {
       console.log("User is admin, showing admin section");
+
+      // Get collected fees
+      let collectedFees = "0";
+      try {
+        const feesWei = await contract.collectedFees();
+        collectedFees = ethers.formatEther(feesWei);
+        console.log("Collected fees:", collectedFees, "ETH");
+      } catch (feeError) {
+        console.error("Error getting collected fees:", feeError);
+      }
+
       // Show admin section
       let adminSection = document.getElementById("adminSection");
       if (!adminSection) {
@@ -339,16 +349,6 @@ export async function checkWinnerAndDraw() {
           adminDiv.className = "admin-section";
           adminDiv.style.display = "block"; // Ensure it's visible
 
-          // Get collected fees
-          let collectedFees = "0";
-          try {
-            const feesWei = await contract.collectedFees();
-            collectedFees = ethers.formatEther(feesWei);
-            console.log("Collected fees:", collectedFees, "ETH");
-          } catch (feeError) {
-            console.error("Error getting collected fees:", feeError);
-          }
-
           adminDiv.innerHTML = `
             <h3>🔐 Admin Controls</h3>
             <div class="admin-info">
@@ -359,10 +359,10 @@ export async function checkWinnerAndDraw() {
             </div>
             <div id="adminStatus">Checking draw status...</div>
             <div class="admin-buttons">
-              <button id="checkDrawBtn" onclick="window.checkCanDraw()" class="admin-btn">Check Draw Status</button>
-              <button id="requestDrawBtn" onclick="window.requestDraw()" class="admin-btn">Request Draw</button>
-              <button id="selectNewWinnerBtn" onclick="window.selectNewWinner()" class="admin-btn">Select New Winner</button>
-              <button id="withdrawFeesBtn" onclick="window.withdrawFees()" class="admin-btn">Withdraw Fees (${collectedFees} ETH)</button>
+              <button id="checkDrawBtn" class="admin-btn" onclick="window.checkCanDraw()">Check Draw Status</button>
+              <button id="requestDrawBtn" class="admin-btn" onclick="window.requestDraw()">Request Draw</button>
+              <button id="selectNewWinnerBtn" class="admin-btn" onclick="window.selectNewWinner()">Select New Winner</button>
+              <button id="withdrawFeesBtn" class="admin-btn" onclick="window.withdrawFees()">Withdraw Fees (${collectedFees} ETH)</button>
             </div>
           `;
           dashboard.after(adminDiv);
@@ -377,19 +377,12 @@ export async function checkWinnerAndDraw() {
         // Update collected fees if admin section already exists
         const collectedFeesElement = document.getElementById("collectedFees");
         if (collectedFeesElement) {
-          try {
-            const feesWei = await contract.collectedFees();
-            const collectedFees = ethers.formatEther(feesWei);
-            console.log("Updated collected fees:", collectedFees, "ETH");
-            collectedFeesElement.innerText = `${collectedFees} ETH`;
+          collectedFeesElement.innerText = `${collectedFees} ETH`;
 
-            // Also update the withdraw fees button
-            const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
-            if (withdrawFeesBtn) {
-              withdrawFeesBtn.innerText = `Withdraw Fees (${collectedFees} ETH)`;
-            }
-          } catch (feeError) {
-            console.error("Error updating collected fees:", feeError);
+          // Also update the withdraw fees button
+          const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
+          if (withdrawFeesBtn) {
+            withdrawFeesBtn.innerText = `Withdraw Fees (${collectedFees} ETH)`;
           }
         }
 

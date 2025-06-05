@@ -570,12 +570,13 @@ function updateLeaderboardFromData(
 
   console.log("Updating leaderboard with data:", topDepositors);
 
-  let html = `
-    <div class="leaderboard-header">
-      <h3>Top Depositors</h3>
-    </div>
-    <div class="leaderboard-content">
-  `;
+  // Update timeframe selector if it exists
+  const timeframeSelector = document.getElementById("timeframeSelector");
+  if (timeframeSelector) {
+    timeframeSelector.value = selectedTimeframe;
+  }
+
+  let html = ``;
 
   if (topDepositors && topDepositors.length > 0) {
     topDepositors.forEach((entry, index) => {
@@ -603,7 +604,7 @@ function updateLeaderboardFromData(
     });
 
     // Try to resolve ENS names after rendering
-    setTimeout(() => resolveLeaderboardENSNames(topDepositors), 100);
+    setTimeout(() => resolveENSNames(topDepositors), 100);
   } else {
     html += `
       <div class="leaderboard-row empty">
@@ -612,47 +613,27 @@ function updateLeaderboardFromData(
     `;
   }
 
-  html += `</div>`;
   leaderboardEl.innerHTML = html;
-
-  // Add CSS for leaderboard if not already added
-  if (!document.getElementById("leaderboard-styles")) {
-    const style = document.createElement("style");
-    style.id = "leaderboard-styles";
-    style.textContent = `
-      .leaderboard-address {
-        color: #00ffff;
-        text-decoration: none;
-        transition: color 0.2s;
-      }
-      
-      .leaderboard-address:hover {
-        color: #ff00ff;
-        text-decoration: underline;
-      }
-    `;
-    document.head.appendChild(style);
-  }
 }
 
-// Improved ENS resolution function
-async function resolveLeaderboardENSNames(topDepositors) {
+// Completely rewritten ENS resolution function
+async function resolveENSNames(topDepositors) {
+  if (!topDepositors || topDepositors.length === 0) {
+    console.log("No depositors to resolve ENS names for");
+    return;
+  }
+
+  console.log("Resolving ENS names for:", topDepositors);
+
   try {
-    console.log("Resolving ENS names for leaderboard...", topDepositors);
+    // Use Alchemy's public endpoint which has better ENS support
+    const provider = new ethers.JsonRpcProvider(
+      "https://eth-mainnet.g.alchemy.com/v2/demo"
+    );
 
-    if (!topDepositors || topDepositors.length === 0) {
-      console.log("No depositors to resolve ENS names for");
-      return;
-    }
+    console.log("Created provider for ENS resolution");
 
-    // Use Cloudflare's public Ethereum gateway which allows CORS
-    const provider = new ethers.JsonRpcProvider("https://cloudflare-eth.com");
-
-    console.log("Created provider for ENS resolution:", provider);
-
-    // Add a small delay to ensure DOM is ready
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
+    // Process each depositor
     for (let i = 0; i < topDepositors.length; i++) {
       const address = topDepositors[i].address;
       if (!address) continue;
@@ -660,45 +641,36 @@ async function resolveLeaderboardENSNames(topDepositors) {
       const addressElement = document.getElementById(
         `leaderboard-address-${i}`
       );
-      if (!addressElement) {
-        console.log(`Element leaderboard-address-${i} not found`);
-        continue;
-      }
+      if (!addressElement) continue;
 
-      console.log(`Trying to resolve ENS for ${address}...`);
+      console.log(`Looking up ENS for ${address}`);
 
       try {
-        // Try to resolve ENS name with explicit timeout
-        const ensPromise = provider.lookupAddress(address);
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("ENS lookup timeout")), 3000)
-        );
-
-        const ensName = await Promise.race([ensPromise, timeoutPromise]);
-        console.log(`ENS lookup result for ${address}:`, ensName);
+        const ensName = await provider.lookupAddress(address);
 
         if (ensName) {
+          console.log(`Found ENS name for ${address}: ${ensName}`);
           addressElement.innerText = ensName;
-          console.log(`Set ENS name ${ensName} for address ${address}`);
+          // Keep the link to Etherscan
+          addressElement.title = address;
+        } else {
+          console.log(`No ENS name found for ${address}`);
         }
       } catch (error) {
-        console.log(`Could not resolve ENS for ${address}:`, error);
+        console.error(`Error resolving ENS for ${address}:`, error);
       }
     }
   } catch (error) {
-    console.error("Error resolving ENS names:", error);
+    console.error("Error setting up ENS resolution:", error);
   }
 }
 
 // Make ENS resolution function available globally
-window.resolveLeaderboardENSNames = resolveLeaderboardENSNames;
+window.resolveENSNames = resolveENSNames;
 
 // Add a function to manually trigger ENS resolution
 window.refreshENSNames = function () {
-  const leaderboardEl = document.getElementById("leaderboard");
-  if (!leaderboardEl) return;
-
-  console.log("Manually refreshing ENS names...");
+  console.log("Manually refreshing ENS names");
 
   // Extract addresses from the DOM
   const addresses = [];
@@ -713,27 +685,27 @@ window.refreshENSNames = function () {
   }
 
   if (addresses.length > 0) {
-    resolveLeaderboardENSNames(addresses);
+    resolveENSNames(addresses);
+  } else {
+    console.log("No addresses found to resolve");
   }
 };
 
 // Filter entries by timeframe
 function filterEntriesByTimeframe(entries, timeframe) {
+  if (!entries || entries.length === 0) return [];
+
   const now = Math.floor(Date.now() / 1000);
 
-  switch (timeframe) {
-    case "daily":
-      return entries.filter(
-        (entry) => entry.timestamp > now - 86400 // Last 24 hours
-      );
-    case "weekly":
-      return entries.filter(
-        (entry) => entry.timestamp > now - 604800 // Last 7 days
-      );
-    case "allTime":
-    default:
-      return entries;
+  if (timeframe === "allTime") {
+    return entries;
+  } else if (timeframe === "24h") {
+    return entries.filter((entry) => now - entry.timestamp < 24 * 60 * 60);
+  } else if (timeframe === "7d") {
+    return entries.filter((entry) => now - entry.timestamp < 7 * 24 * 60 * 60);
   }
+
+  return entries;
 }
 
 // Update status message based on percent complete
@@ -813,8 +785,11 @@ window.updateLeaderboardFromData = updateLeaderboardFromData;
 export function changeTimeframe(timeframe) {
   console.log("Changing timeframe to:", timeframe);
 
-  // Store the selected timeframe in localStorage
-  localStorage.setItem("selectedTimeframe", timeframe);
+  // Update the selector UI
+  const selector = document.getElementById("timeframeSelector");
+  if (selector) {
+    selector.value = timeframe;
+  }
 
   // Get cached data
   const cachedData = localStorage.getItem("contractData");
@@ -855,7 +830,7 @@ export function changeTimeframe(timeframe) {
       })
     );
 
-    // Sort by amount (highest first)
+    // Sort by amount descending
     leaderboardData.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
 
     // Update leaderboard with filtered data
@@ -865,98 +840,8 @@ export function changeTimeframe(timeframe) {
   }
 }
 
-// Make testAllConnections available globally
-window.testAllConnections = async function () {
-  console.log("Testing all connections...");
-  document.getElementById("status").innerText = "⏳ Testing connections...";
-
-  let results = {
-    subgraph: false,
-    contract: false,
-    provider: false,
-  };
-
-  // Test subgraph
-  try {
-    console.log("Testing subgraph connection...");
-    const response = await fetch(SUBGRAPH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `{ _meta { block { number } } }`,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.data && data.data._meta) {
-        results.subgraph = true;
-        console.log("Subgraph connection successful:", data);
-      }
-    }
-  } catch (e) {
-    console.error("Subgraph test failed:", e);
-  }
-
-  // Test contract direct call
-  try {
-    console.log("Testing direct contract connection...");
-    const provider = new ethers.JsonRpcProvider(
-      "https://eth-sepolia.public.blastapi.io"
-    );
-    const contract = new ethers.Contract(contractAddress, abi, provider);
-    const totalPool = await contract.totalPool();
-
-    if (totalPool !== undefined) {
-      results.contract = true;
-      console.log(
-        "Contract connection successful:",
-        ethers.formatEther(totalPool),
-        "ETH"
-      );
-    }
-  } catch (e) {
-    console.error("Contract test failed:", e);
-  }
-
-  // Test provider
-  try {
-    console.log("Testing provider connection...");
-    const provider = new ethers.JsonRpcProvider(
-      "https://eth-sepolia.public.blastapi.io"
-    );
-    const blockNumber = await provider.getBlockNumber();
-
-    if (blockNumber > 0) {
-      results.provider = true;
-      console.log("Provider connection successful, block:", blockNumber);
-    }
-  } catch (e) {
-    console.error("Provider test failed:", e);
-  }
-
-  // Update status with results
-  document.getElementById("status").innerHTML = `
-    Connection test results:<br>
-    Subgraph: ${results.subgraph ? "✅" : "❌"}<br>
-    Contract: ${results.contract ? "✅" : "❌"}<br>
-    Provider: ${results.provider ? "✅" : "❌"}<br>
-  `;
-
-  // Try to load data with the best available method
-  if (results.subgraph) {
-    console.log("Using subgraph to load data...");
-    loadJackpotInfo();
-  } else if (results.contract) {
-    console.log("Using direct contract call to load data...");
-    tryDirectContractCall(true);
-  } else {
-    console.log("All connection methods failed");
-    useCachedDataIfAvailable();
-  }
-
-  return results;
-};
+// Make sure the changeTimeframe function is available globally
+window.changeTimeframe = changeTimeframe;
 
 // Import the debugWalletConnection function from wallet.js
 import { debugWalletConnection } from "./wallet.js";
