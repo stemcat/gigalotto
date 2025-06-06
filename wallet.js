@@ -173,8 +173,13 @@ export async function connectAndDeposit() {
     await tx.wait();
     document.getElementById("status").innerText = "✅ Deposit successful!";
 
-    // Update UI
+    // Update UI and refresh data
     updateUI();
+
+    // Refresh data from subgraph/contract
+    if (window.refreshData) {
+      window.refreshData();
+    }
   } catch (e) {
     console.error("Deposit error:", e);
 
@@ -246,6 +251,11 @@ export async function withdraw(amount) {
     await tx.wait();
     document.getElementById("status").innerText = "✅ Withdrawal successful!";
     updateUI();
+
+    // Refresh data from subgraph/contract
+    if (window.refreshData) {
+      window.refreshData();
+    }
   } catch (e) {
     console.error("Withdraw error:", e);
 
@@ -781,7 +791,14 @@ export async function checkIfConnected() {
 
     if (accounts.length > 0) {
       console.log("Found connected account:", accounts[0]);
-      return await initWeb3();
+      const result = await initWeb3();
+
+      // Refresh data when wallet connects
+      if (window.refreshData) {
+        window.refreshData();
+      }
+
+      return result;
     }
 
     // Not connected, make sure connect button is visible and deposit button is hidden
