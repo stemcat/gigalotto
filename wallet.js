@@ -435,6 +435,7 @@ export async function checkWinnerAndDraw() {
                 console.log("Check Draw button clicked");
                 await checkCanDraw();
               });
+              checkDrawBtn.setAttribute("data-listener-added", "true");
             }
 
             if (requestDrawBtn) {
@@ -442,6 +443,7 @@ export async function checkWinnerAndDraw() {
                 console.log("Request Draw button clicked");
                 await requestDraw();
               });
+              requestDrawBtn.setAttribute("data-listener-added", "true");
             }
 
             if (selectNewWinnerBtn) {
@@ -449,6 +451,7 @@ export async function checkWinnerAndDraw() {
                 console.log("Select New Winner button clicked");
                 await selectNewWinner();
               });
+              selectNewWinnerBtn.setAttribute("data-listener-added", "true");
             }
 
             if (withdrawFeesBtn) {
@@ -456,6 +459,7 @@ export async function checkWinnerAndDraw() {
                 console.log("Withdraw Fees button clicked");
                 await withdrawFees();
               });
+              withdrawFeesBtn.setAttribute("data-listener-added", "true");
             }
 
             if (refreshFeesBtn) {
@@ -463,6 +467,7 @@ export async function checkWinnerAndDraw() {
                 console.log("Refresh Fees button clicked");
                 await updateAdminFeesDisplay();
               });
+              refreshFeesBtn.setAttribute("data-listener-added", "true");
             }
 
             console.log("Admin button event listeners added");
@@ -505,9 +510,85 @@ export async function checkWinnerAndDraw() {
       } else {
         // Make sure admin section is visible
         adminSection.style.display = "block";
+        console.log("Admin section already exists, updating fees directly");
 
-        // Update collected fees if admin section already exists
-        await updateAdminFeesDisplay();
+        // Update collected fees directly since admin section already exists
+        const feesElement = document.getElementById("collectedFees");
+        const withdrawBtn = document.getElementById("withdrawFeesBtn");
+
+        if (feesElement) {
+          console.log(
+            "Updating existing fees element with:",
+            collectedFees,
+            "ETH"
+          );
+          feesElement.innerText = `${collectedFees} ETH`;
+        } else {
+          console.error("Fees element not found in existing admin section");
+        }
+
+        if (withdrawBtn) {
+          withdrawBtn.innerText = `Withdraw Fees (${collectedFees} ETH)`;
+        }
+
+        // Ensure event listeners are attached to existing buttons
+        const checkDrawBtn = document.getElementById("checkDrawBtn");
+        const requestDrawBtn = document.getElementById("requestDrawBtn");
+        const selectNewWinnerBtn =
+          document.getElementById("selectNewWinnerBtn");
+        const refreshFeesBtn = document.getElementById("refreshFeesBtn");
+
+        // Remove existing listeners and add new ones
+        if (checkDrawBtn && !checkDrawBtn.hasAttribute("data-listener-added")) {
+          checkDrawBtn.addEventListener("click", async () => {
+            console.log("Check Draw button clicked");
+            await checkCanDraw();
+          });
+          checkDrawBtn.setAttribute("data-listener-added", "true");
+        }
+
+        if (
+          requestDrawBtn &&
+          !requestDrawBtn.hasAttribute("data-listener-added")
+        ) {
+          requestDrawBtn.addEventListener("click", async () => {
+            console.log("Request Draw button clicked");
+            await requestDraw();
+          });
+          requestDrawBtn.setAttribute("data-listener-added", "true");
+        }
+
+        if (
+          selectNewWinnerBtn &&
+          !selectNewWinnerBtn.hasAttribute("data-listener-added")
+        ) {
+          selectNewWinnerBtn.addEventListener("click", async () => {
+            console.log("Select New Winner button clicked");
+            await selectNewWinner();
+          });
+          selectNewWinnerBtn.setAttribute("data-listener-added", "true");
+        }
+
+        if (withdrawBtn && !withdrawBtn.hasAttribute("data-listener-added")) {
+          withdrawBtn.addEventListener("click", async () => {
+            console.log("Withdraw Fees button clicked");
+            await withdrawFees();
+          });
+          withdrawBtn.setAttribute("data-listener-added", "true");
+        }
+
+        if (
+          refreshFeesBtn &&
+          !refreshFeesBtn.hasAttribute("data-listener-added")
+        ) {
+          refreshFeesBtn.addEventListener("click", async () => {
+            console.log("Refresh Fees button clicked");
+            await updateAdminFeesDisplay();
+          });
+          refreshFeesBtn.setAttribute("data-listener-added", "true");
+        }
+
+        console.log("Event listeners attached to existing admin buttons");
 
         // Check if draw is possible
         await checkCanDraw();
