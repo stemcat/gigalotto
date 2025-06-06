@@ -404,11 +404,11 @@ export async function checkWinnerAndDraw() {
             </div>
             <div id="adminStatus">Checking draw status...</div>
             <div class="admin-buttons">
-              <button id="checkDrawBtn" class="admin-btn" onclick="window.checkCanDraw()">Check Draw Status</button>
-              <button id="requestDrawBtn" class="admin-btn" onclick="window.requestDraw()">Request Draw</button>
-              <button id="selectNewWinnerBtn" class="admin-btn" onclick="window.selectNewWinner()">Select New Winner</button>
-              <button id="withdrawFeesBtn" class="admin-btn" onclick="window.withdrawFees()">Withdraw Fees (${collectedFees} ETH)</button>
-              <button id="refreshFeesBtn" class="admin-btn" onclick="window.updateAdminFeesDisplay()">Refresh Fees</button>
+              <button id="checkDrawBtn" class="admin-btn">Check Draw Status</button>
+              <button id="requestDrawBtn" class="admin-btn">Request Draw</button>
+              <button id="selectNewWinnerBtn" class="admin-btn">Select New Winner</button>
+              <button id="withdrawFeesBtn" class="admin-btn">Withdraw Fees (${collectedFees} ETH)</button>
+              <button id="refreshFeesBtn" class="admin-btn">Refresh Fees</button>
             </div>
           `;
 
@@ -421,19 +421,51 @@ export async function checkWinnerAndDraw() {
 
           console.log("Admin section inserted into DOM");
 
-          // Verify the elements exist
+          // Add event listeners for admin buttons
           setTimeout(() => {
-            const feesElement = document.getElementById("collectedFees");
-            const withdrawBtn = document.getElementById("withdrawFeesBtn");
-            console.log("Fees element found after insert:", !!feesElement);
-            console.log("Withdraw button found after insert:", !!withdrawBtn);
+            const checkDrawBtn = document.getElementById("checkDrawBtn");
+            const requestDrawBtn = document.getElementById("requestDrawBtn");
+            const selectNewWinnerBtn =
+              document.getElementById("selectNewWinnerBtn");
+            const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
+            const refreshFeesBtn = document.getElementById("refreshFeesBtn");
 
-            if (feesElement) {
-              console.log(
-                "Current fees element content:",
-                feesElement.innerText
-              );
+            if (checkDrawBtn) {
+              checkDrawBtn.addEventListener("click", async () => {
+                console.log("Check Draw button clicked");
+                await checkCanDraw();
+              });
             }
+
+            if (requestDrawBtn) {
+              requestDrawBtn.addEventListener("click", async () => {
+                console.log("Request Draw button clicked");
+                await requestDraw();
+              });
+            }
+
+            if (selectNewWinnerBtn) {
+              selectNewWinnerBtn.addEventListener("click", async () => {
+                console.log("Select New Winner button clicked");
+                await selectNewWinner();
+              });
+            }
+
+            if (withdrawFeesBtn) {
+              withdrawFeesBtn.addEventListener("click", async () => {
+                console.log("Withdraw Fees button clicked");
+                await withdrawFees();
+              });
+            }
+
+            if (refreshFeesBtn) {
+              refreshFeesBtn.addEventListener("click", async () => {
+                console.log("Refresh Fees button clicked");
+                await updateAdminFeesDisplay();
+              });
+            }
+
+            console.log("Admin button event listeners added");
           }, 100);
 
           // Check if draw is possible
@@ -442,7 +474,27 @@ export async function checkWinnerAndDraw() {
           // Update fees display immediately after creation with longer delay
           setTimeout(async () => {
             console.log("Attempting to update admin fees display...");
-            await updateAdminFeesDisplay();
+            const feesElement = document.getElementById("collectedFees");
+            const withdrawBtn = document.getElementById("withdrawFeesBtn");
+
+            console.log("Fees element found:", !!feesElement);
+            console.log("Withdraw button found:", !!withdrawBtn);
+
+            if (feesElement) {
+              console.log("Updating fees element with:", collectedFees, "ETH");
+              feesElement.innerText = `${collectedFees} ETH`;
+              console.log("Fees element updated to:", feesElement.innerText);
+            } else {
+              console.error("Fees element still not found after 1000ms delay");
+            }
+
+            if (withdrawBtn) {
+              const newButtonText = `Withdraw Fees (${collectedFees} ETH)`;
+              console.log("Updating withdraw button to:", newButtonText);
+              withdrawBtn.innerText = newButtonText;
+            } else {
+              console.error("Withdraw button not found");
+            }
           }, 1000);
 
           // Set up periodic fee updates every 20 seconds (less frequent to avoid rate limits)
@@ -970,62 +1022,7 @@ window.testAdminFunctions = function () {
   }
 };
 
-// Make admin functions available globally
-window.requestDraw = async function () {
-  try {
-    document.getElementById("status").innerText = "⏳ Requesting draw...";
-    const tx = await contract.requestDraw();
-    await tx.wait();
-    document.getElementById("status").innerText = "✅ Draw requested!";
-    updateUI();
-  } catch (e) {
-    console.error("Draw error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Draw failed: " + e.message;
-  }
-};
-
-window.withdrawFees = async function () {
-  try {
-    document.getElementById("status").innerText = "⏳ Withdrawing fees...";
-    const tx = await contract.withdrawFees();
-    await tx.wait();
-    document.getElementById("status").innerText =
-      "✅ Fees withdrawn successfully!";
-
-    // Update the admin section after withdrawal
-    const collectedFeesElement = document.getElementById("collectedFees");
-    if (collectedFeesElement) {
-      collectedFeesElement.innerText = "0 ETH";
-    }
-
-    const withdrawFeesBtn = document.getElementById("withdrawFeesBtn");
-    if (withdrawFeesBtn) {
-      withdrawFeesBtn.innerText = "Withdraw Fees (0 ETH)";
-    }
-
-    updateUI();
-  } catch (e) {
-    console.error("Withdraw fees error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Withdraw fees failed: " + e.message;
-  }
-};
-
-window.selectNewWinner = async function () {
-  try {
-    document.getElementById("status").innerText = "⏳ Selecting new winner...";
-    const tx = await contract.selectNewWinner();
-    await tx.wait();
-    document.getElementById("status").innerText =
-      "✅ New winner selection initiated!";
-    updateUI();
-  } catch (e) {
-    console.error("Select new winner error:", e);
-    document.getElementById("status").innerText =
-      "⚠️ Select new winner failed: " + e.message;
-  }
-};
+// Admin functions are already exported above, just make them globally available
 
 window.setFee = async function () {
   try {
