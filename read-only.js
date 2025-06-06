@@ -896,11 +896,10 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
   console.log(`Resolving ${needResolution.length} ENS names not in cache`);
 
   try {
-    // Use CORS-friendly RPC endpoints, prioritizing mainnet for ENS
+    // Use only working CORS-friendly RPC endpoints for Sepolia
     const rpcEndpoints = [
       "https://eth-sepolia.public.blastapi.io", // This works without CORS
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
-      "https://cloudflare-eth.com", // Mainnet for ENS (most ENS names are here)
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura backup
     ];
 
     let provider;
@@ -953,7 +952,7 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
           needsResolution: false,
         };
       } catch (error) {
-        console.error(`Error resolving ENS for ${address}:`, error);
+        console.warn(`⚠️ ENS lookup failed for ${address}:`, error.message);
         // Cache null result to avoid repeated failures
         setCachedENS(address, null);
         return {
