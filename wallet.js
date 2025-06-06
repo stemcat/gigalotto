@@ -179,7 +179,6 @@ export async function connectAndDeposit() {
 
     // Wait for confirmation
     await tx.wait();
-    const statusEl = document.getElementById("status");
     statusEl.innerText = "✅ Deposit successful!";
     statusEl.className = ""; // Remove hot-flame class
 
