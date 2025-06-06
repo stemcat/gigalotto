@@ -822,6 +822,49 @@ async function updateLeaderboardFromData(
   leaderboardEl.setAttribute("data-last-addresses", currentAddresses);
 }
 
+// ENS Cache Management
+function getENSCache() {
+  try {
+    const cache = localStorage.getItem("ensCache");
+    return cache ? JSON.parse(cache) : {};
+  } catch (e) {
+    console.error("Error reading ENS cache:", e);
+    return {};
+  }
+}
+
+function setENSCache(cache) {
+  try {
+    localStorage.setItem("ensCache", JSON.stringify(cache));
+  } catch (e) {
+    console.error("Error saving ENS cache:", e);
+  }
+}
+
+function getCachedENS(address) {
+  const cache = getENSCache();
+  const cached = cache[address.toLowerCase()];
+
+  if (cached) {
+    // Check if cache is still valid (24 hours)
+    const now = Date.now();
+    if (now - cached.timestamp < 24 * 60 * 60 * 1000) {
+      return cached.ensName;
+    }
+  }
+
+  return null;
+}
+
+function setCachedENS(address, ensName) {
+  const cache = getENSCache();
+  cache[address.toLowerCase()] = {
+    ensName: ensName || null,
+    timestamp: Date.now(),
+  };
+  setENSCache(cache);
+}
+
 // Resolve ENS names before displaying (to prevent address->ENS flashing)
 async function resolveENSNamesBeforeDisplay(topDepositors) {
   if (!topDepositors || topDepositors.length === 0) {
@@ -830,9 +873,34 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
 
   console.log("Resolving ENS names before display for:", topDepositors);
 
+  // First, check cache for all addresses
+  const depositorsWithCachedENS = topDepositors.map((depositor) => {
+    const cachedENS = getCachedENS(depositor.address);
+    return {
+      ...depositor,
+      ensName: cachedENS,
+      needsResolution: cachedENS === null,
+    };
+  });
+
+  // Filter addresses that need resolution
+  const needResolution = depositorsWithCachedENS.filter(
+    (d) => d.needsResolution
+  );
+
+  if (needResolution.length === 0) {
+    console.log("All ENS names found in cache!");
+    return depositorsWithCachedENS;
+  }
+
+  console.log(`Resolving ${needResolution.length} ENS names not in cache`);
+
   try {
-    // Use only reliable Sepolia testnet RPC endpoints
-    const rpcEndpoints = ["https://rpc.sepolia.org"];
+    // Use multiple RPC endpoints for better reliability
+    const rpcEndpoints = [
+      "https://rpc.sepolia.org",
+      "https://eth-sepolia.public.blastapi.io",
+    ];
 
     let provider;
     let connected = false;
@@ -840,12 +908,12 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
     // Try each endpoint until one works
     for (const endpoint of rpcEndpoints) {
       try {
-        console.log(`Trying Sepolia RPC endpoint for ENS: ${endpoint}`);
+        console.log(`Trying RPC endpoint for ENS: ${endpoint}`);
         provider = new ethers.JsonRpcProvider(endpoint);
 
         // Test the connection
         await provider.getBlockNumber();
-        console.log(`Connected to Sepolia RPC for ENS resolution: ${endpoint}`);
+        console.log(`Connected to RPC for ENS resolution: ${endpoint}`);
 
         connected = true;
         break;
@@ -855,52 +923,72 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
     }
 
     if (!connected) {
-      console.warn(
-        "Failed to connect to any Sepolia RPC endpoint for ENS resolution"
-      );
-      return topDepositors; // Return original data without ENS names
+      console.warn("Failed to connect to any RPC endpoint for ENS resolution");
+      return depositorsWithCachedENS; // Return data with cached ENS names
     }
 
-    // Process each depositor and resolve ENS names
-    const depositorsWithENS = await Promise.all(
-      topDepositors.map(async (depositor) => {
-        const address = depositor.address;
-        if (!address) return depositor;
+    // Resolve ENS names for addresses not in cache
+    const resolutionPromises = needResolution.map(async (depositor) => {
+      const address = depositor.address;
+      if (!address) return depositor;
 
-        try {
-          // First check Sepolia ENS
-          let ensName = await provider.lookupAddress(address);
+      try {
+        // First check Sepolia ENS
+        let ensName = await provider.lookupAddress(address);
 
-          if (!ensName) {
-            // If no ENS name on Sepolia, try mainnet
-            try {
-              const mainnetProvider = new ethers.JsonRpcProvider(
-                "https://cloudflare-eth.com"
-              );
-              ensName = await mainnetProvider.lookupAddress(address);
-            } catch (mainnetError) {
-              console.error(
-                `Error checking mainnet ENS for ${address}:`,
-                mainnetError
-              );
-            }
+        if (!ensName) {
+          // If no ENS name on Sepolia, try mainnet
+          try {
+            const mainnetProvider = new ethers.JsonRpcProvider(
+              "https://cloudflare-eth.com"
+            );
+            ensName = await mainnetProvider.lookupAddress(address);
+          } catch (mainnetError) {
+            console.error(
+              `Error checking mainnet ENS for ${address}:`,
+              mainnetError
+            );
           }
-
-          return {
-            ...depositor,
-            ensName: ensName || null,
-          };
-        } catch (error) {
-          console.error(`Error resolving ENS for ${address}:`, error);
-          return depositor;
         }
-      })
-    );
 
-    return depositorsWithENS;
+        // Cache the result (even if null)
+        setCachedENS(address, ensName);
+
+        return {
+          ...depositor,
+          ensName: ensName || null,
+          needsResolution: false,
+        };
+      } catch (error) {
+        console.error(`Error resolving ENS for ${address}:`, error);
+        // Cache null result to avoid repeated failures
+        setCachedENS(address, null);
+        return {
+          ...depositor,
+          ensName: null,
+          needsResolution: false,
+        };
+      }
+    });
+
+    const resolvedDepositors = await Promise.all(resolutionPromises);
+
+    // Merge cached and resolved results
+    const finalResult = depositorsWithCachedENS.map((depositor) => {
+      if (depositor.needsResolution) {
+        const resolved = resolvedDepositors.find(
+          (r) => r.address === depositor.address
+        );
+        return resolved || depositor;
+      }
+      return depositor;
+    });
+
+    console.log("ENS resolution complete with caching");
+    return finalResult;
   } catch (error) {
     console.error("Error setting up ENS resolution:", error);
-    return topDepositors; // Return original data without ENS names
+    return depositorsWithCachedENS; // Return data with cached ENS names
   }
 }
 
