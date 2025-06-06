@@ -935,14 +935,10 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
       if (!address) return depositor;
 
       try {
-        // Use Alchemy's Sepolia endpoint for ENS resolution (we're on Sepolia testnet)
-        const alchemySepoliaProvider = new ethers.JsonRpcProvider(
-          "https://eth-sepolia.g.alchemy.com/v2/demo"
-        );
-
+        // Use the same provider that's already connected and working
         // Add timeout to prevent hanging
         const ensName = await Promise.race([
-          alchemySepoliaProvider.lookupAddress(address),
+          provider.lookupAddress(address),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error("ENS lookup timeout")), 3000)
           ),
