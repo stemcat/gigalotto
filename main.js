@@ -9,7 +9,8 @@ import {
 } from "./wallet.js";
 
 import {
-  setupAutoRefresh,
+  loadInitialData,
+  refreshData,
   tryDirectContractCall,
   debugSubgraphConnection,
   verifyContractAddress,
@@ -56,17 +57,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     await import("./wallet.js").then(async (walletModule) => {
       console.log("Wallet module loaded");
 
-      // Check if already connected
-      const isConnected = await walletModule.checkIfConnected();
-      console.log("Is connected:", isConnected);
-
-      // Show/hide buttons based on connection status
-      if (isConnected) {
-        if (connectBtn) connectBtn.style.display = "none";
-        if (depositBtn) depositBtn.style.display = "inline-block";
-      } else {
-        if (connectBtn) connectBtn.style.display = "inline-block";
-        if (depositBtn) depositBtn.style.display = "none";
+      // Initialize the wallet page properly
+      if (walletModule.initPage) {
+        await walletModule.initPage();
       }
 
       // Set up account change listeners
@@ -79,16 +72,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
       if (readOnlyModule.initializeReadOnly) {
         readOnlyModule.initializeReadOnly();
+      } else if (readOnlyModule.loadInitialData) {
+        // Fallback to loadInitialData if initializeReadOnly doesn't exist
+        readOnlyModule.loadInitialData();
       }
-
-      // Load jackpot info after a short delay
-      setTimeout(() => {
-        if (typeof window.loadJackpotInfo === "function") {
-          window.loadJackpotInfo();
-        } else {
-          console.error("loadJackpotInfo function not available");
-        }
-      }, 1000);
     });
   } catch (error) {
     console.error("Initialization error:", error);

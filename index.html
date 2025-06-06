@@ -9,6 +9,7 @@
     <link
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
       rel="stylesheet"
+      onerror="console.warn('Font loading failed, using fallback')"
     />
     <!-- Replace the old ethers.js script with the new one that matches the import in wallet.js -->
     <script
@@ -22,14 +23,6 @@
     <style>
       /* Use a fallback font if Press Start 2P fails to load */
       body {
-        font-family: "Press Start 2P", monospace, sans-serif;
-      }
-      @font-face {
-        font-family: "ArcadeClassic";
-        src: url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
-      }
-
-      body {
         background: repeating-linear-gradient(
           45deg,
           #0f0529 0px,
@@ -37,7 +30,7 @@
           #1a0c3a 20px,
           #1a0c3a 40px
         );
-        font-family: "ArcadeClassic", "Press Start 2P", cursive;
+        font-family: "Press Start 2P", "Courier New", monospace;
         color: #e0e0ff;
         margin: 0;
         padding: 0;
