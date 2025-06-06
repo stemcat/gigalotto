@@ -4,13 +4,15 @@ import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 export const contractAddress = "0xC51569C3877Db750494adA6d1886a9765ab29dD5"; // Updated contract address
 export const abi = [
   "function deposit() external payable",
-  "function withdraw() external",
+  "function withdraw(uint256 amount) external",
   "function withdrawIfWinner() external",
   "function selectNewWinner() external",
   "function requestDraw() external",
   "function withdrawFees() external",
   "function userDeposits(address) view returns (uint256)",
   "function withdrawableAmounts(address) view returns (uint256)",
+  "function depositTimestamps(address) view returns (uint256)",
+  "function LOCK_PERIOD() view returns (uint256)",
   "function totalPool() view returns (uint256)",
   "function getJackpotUsd() view returns (uint256)",
   "function TARGET_USD() view returns (uint256)",
@@ -225,10 +227,22 @@ export async function withdrawWinnings() {
 }
 
 // Handle regular withdrawals
-export async function withdraw() {
+export async function withdraw(amount) {
   try {
+    if (!amount) {
+      // Get the withdrawable amount if not provided
+      const withdrawable = await contract.withdrawableAmounts(userAccount);
+      amount = withdrawable;
+    }
+
+    if (amount === 0n) {
+      document.getElementById("status").innerText =
+        "⚠️ No funds available to withdraw";
+      return;
+    }
+
     document.getElementById("status").innerText = "⏳ Withdrawing funds...";
-    const tx = await contract.withdraw();
+    const tx = await contract.withdraw(amount);
     await tx.wait();
     document.getElementById("status").innerText = "✅ Withdrawal successful!";
     updateUI();
@@ -287,12 +301,36 @@ export async function updateUI() {
     // Get total pool
     const totalPool = await contract.totalPool();
 
-    // Get withdrawable amount
+    // Get withdrawable amount and check lock period
     let withdrawable = 0n;
+    let canWithdraw = false;
+    let timeUntilUnlock = 0;
+
     try {
       withdrawable = await contract.withdrawableAmounts(userAccount);
+
+      if (withdrawable > 0n) {
+        // Check if lock period has passed
+        const depositTimestamp = await contract.depositTimestamps(userAccount);
+        const lockPeriod = await contract.LOCK_PERIOD();
+        const currentTime = Math.floor(Date.now() / 1000);
+        const unlockTime = Number(depositTimestamp) + Number(lockPeriod);
+
+        canWithdraw = currentTime >= unlockTime;
+        timeUntilUnlock = Math.max(0, unlockTime - currentTime);
+
+        console.log("Withdrawal check:", {
+          withdrawable: ethers.formatEther(withdrawable),
+          depositTimestamp: Number(depositTimestamp),
+          lockPeriod: Number(lockPeriod),
+          currentTime,
+          unlockTime,
+          canWithdraw,
+          timeUntilUnlock,
+        });
+      }
     } catch (e) {
-      console.log("No withdrawableAmounts function, using 0");
+      console.error("Error checking withdrawable amounts:", e);
     }
 
     // Calculate win chance
@@ -319,14 +357,53 @@ export async function updateUI() {
     // Update withdrawable amount if element exists
     const withdrawableEl = document.getElementById("withdrawableAmount");
     if (withdrawableEl) {
-      withdrawableEl.innerText = ethers.formatEther(withdrawable); // Removed extra ETH
+      withdrawableEl.innerText = ethers.formatEther(withdrawable);
     }
 
-    // Show withdrawal section if there's something to withdraw
+    // Show withdrawal section and update status
     const withdrawalSection = document.getElementById("withdrawalSection");
+    const withdrawBtn = document.getElementById("withdrawBtn");
+    const withdrawStatus = document.getElementById("withdrawStatus");
+
     if (withdrawalSection) {
-      withdrawalSection.style.display =
-        Number(withdrawable) > 0 ? "block" : "none";
+      if (Number(withdrawable) > 0) {
+        withdrawalSection.style.display = "block";
+
+        if (canWithdraw) {
+          if (withdrawBtn) {
+            withdrawBtn.style.display = "inline-block";
+            withdrawBtn.disabled = false;
+            withdrawBtn.innerText = `Withdraw ${ethers.formatEther(
+              withdrawable
+            )} ETH`;
+          }
+          if (withdrawStatus) {
+            withdrawStatus.innerText = "✅ Funds available for withdrawal";
+            withdrawStatus.className = "status-ready";
+          }
+        } else {
+          if (withdrawBtn) {
+            withdrawBtn.style.display = "none";
+          }
+          if (withdrawStatus) {
+            const days = Math.floor(timeUntilUnlock / (24 * 60 * 60));
+            const hours = Math.floor(
+              (timeUntilUnlock % (24 * 60 * 60)) / (60 * 60)
+            );
+            const minutes = Math.floor((timeUntilUnlock % (60 * 60)) / 60);
+
+            let timeText = "";
+            if (days > 0) timeText += `${days}d `;
+            if (hours > 0) timeText += `${hours}h `;
+            if (minutes > 0) timeText += `${minutes}m`;
+
+            withdrawStatus.innerText = `⏳ Funds locked for ${timeText}`;
+            withdrawStatus.className = "status-waiting";
+          }
+        }
+      } else {
+        withdrawalSection.style.display = "none";
+      }
     }
 
     document.getElementById("userDashboard").style.display = "block";
@@ -1129,8 +1206,9 @@ window.setFee = async function () {
   }
 };
 
-// Make withdrawWinnings available globally
+// Make withdrawal functions available globally
 window.withdrawWinnings = withdrawWinnings;
+window.withdraw = withdraw;
 
 // Initialize the page
 export async function initPage() {

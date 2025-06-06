@@ -688,9 +688,8 @@ async function resolveENSNames(topDepositors) {
   console.log("Resolving ENS names for:", topDepositors);
 
   try {
-    // Use Sepolia testnet RPC endpoints that support CORS
+    // Use Sepolia testnet RPC endpoints that support CORS (avoid rate-limited endpoints)
     const rpcEndpoints = [
-      "https://eth-sepolia.public.blastapi.io",
       "https://rpc.sepolia.org",
       "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
     ];
