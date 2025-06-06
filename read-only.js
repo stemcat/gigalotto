@@ -17,6 +17,10 @@ const abi = [
 const SUBGRAPH_URL =
   "https://api.studio.thegraph.com/query/113076/gigalottosepolia/version/latest";
 
+// Add debugging for subgraph connection
+console.log("🔍 Subgraph URL configured:", SUBGRAPH_URL);
+console.log("📍 Contract address:", contractAddress);
+
 // Improved subgraph debugging
 export function debugSubgraphConnection() {
   console.log("=== SUBGRAPH CONNECTION DEBUGGING ===");
@@ -134,10 +138,58 @@ export async function verifyContractAddress() {
   }
 }
 
+// Test subgraph connection first
+export async function testSubgraphConnection() {
+  console.log("🧪 Testing subgraph connection...");
+
+  try {
+    const testQuery = `{ _meta { block { number } } }`;
+
+    const response = await fetch(SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: testQuery }),
+    });
+
+    console.log("📡 Subgraph response status:", response.status);
+
+    if (!response.ok) {
+      console.error(
+        "❌ Subgraph not accessible:",
+        response.status,
+        response.statusText
+      );
+      return false;
+    }
+
+    const data = await response.json();
+    console.log("✅ Subgraph connection successful:", data);
+
+    if (data.errors) {
+      console.error("❌ Subgraph returned errors:", data.errors);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("❌ Subgraph connection failed:", error);
+    return false;
+  }
+}
+
 // Load jackpot info with optimized approach
 export async function loadJackpotInfo() {
   console.log("Loading jackpot info...");
   console.log("Using contract address:", contractAddress);
+
+  // Test subgraph connection first
+  const subgraphWorking = await testSubgraphConnection();
+  if (!subgraphWorking) {
+    console.log(
+      "⚠️ Subgraph not working, falling back to direct contract calls"
+    );
+    return await tryDirectContractCall();
+  }
 
   // Verify the contract exists first
   const contractExists = await verifyContractAddress();

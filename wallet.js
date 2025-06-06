@@ -310,12 +310,18 @@ export async function updateUI() {
       console.log("Checking withdrawable amounts for user:", userAccount);
       withdrawable = await contract.withdrawableAmounts(userAccount);
       console.log("Raw withdrawable amount (Wei):", withdrawable.toString());
-      console.log("Withdrawable amount (ETH):", ethers.formatEther(withdrawable));
+      console.log(
+        "Withdrawable amount (ETH):",
+        ethers.formatEther(withdrawable)
+      );
 
       // Also check userDeposits for comparison
       const userDepositsAmount = await contract.userDeposits(userAccount);
       console.log("User deposits amount (Wei):", userDepositsAmount.toString());
-      console.log("User deposits amount (ETH):", ethers.formatEther(userDepositsAmount));
+      console.log(
+        "User deposits amount (ETH):",
+        ethers.formatEther(userDepositsAmount)
+      );
 
       if (withdrawable > 0n) {
         // Check if lock period has passed
@@ -335,10 +341,13 @@ export async function updateUI() {
         console.warn("No withdrawable amount found. This could mean:");
         console.warn("1. User has no deposits");
         console.warn("2. User already withdrew everything");
-        console.warn("3. Deposit was made before withdrawableAmounts was implemented");
+        console.warn(
+          "3. Deposit was made before withdrawableAmounts was implemented"
+        );
         console.warn("4. There's an issue with the contract state");
       }
 
+      if (withdrawable > 0n) {
         console.log("Withdrawal check:", {
           withdrawable: ethers.formatEther(withdrawable),
           depositTimestamp: Number(depositTimestamp),
@@ -359,7 +368,9 @@ export async function updateUI() {
       }
     } catch (e) {
       console.error("Error checking withdrawable amounts:", e);
-      console.log("Attempting fallback: using userDeposits as withdrawable amount");
+      console.log(
+        "Attempting fallback: using userDeposits as withdrawable amount"
+      );
 
       // Fallback: if withdrawableAmounts fails, use userDeposits
       // This handles cases where deposits were made before withdrawableAmounts was implemented
@@ -370,7 +381,9 @@ export async function updateUI() {
           withdrawable = userDepositsAmount;
 
           // Still check lock period
-          const depositTimestamp = await contract.depositTimestamps(userAccount);
+          const depositTimestamp = await contract.depositTimestamps(
+            userAccount
+          );
           const lockPeriod = await contract.LOCK_PERIOD();
           const currentTime = Math.floor(Date.now() / 1000);
           const unlockTime = Number(depositTimestamp) + Number(lockPeriod);
@@ -381,7 +394,7 @@ export async function updateUI() {
           console.log("Fallback withdrawal check:", {
             withdrawable: ethers.formatEther(withdrawable),
             canWithdraw,
-            timeUntilUnlock: timeUntilUnlock + " seconds"
+            timeUntilUnlock: timeUntilUnlock + " seconds",
           });
         }
       } catch (fallbackError) {
@@ -1315,17 +1328,11 @@ export async function initPage() {
         });
       }
 
-      // Check if already connected
-      const accounts = await window.ethereum.request({
-        method: "eth_accounts",
-      });
-      if (accounts.length > 0) {
-        userAccount = accounts[0];
-        document.getElementById("connectBtn").style.display = "none";
-        document.getElementById("depositBtn").style.display = "inline-block";
-        document.getElementById("userDashboard").style.display = "block";
-        updateUserDashboard();
-      }
+      // Listen for account changes
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
+
+      // Check if already connected using the proper function
+      await checkIfConnected();
     } else {
       document.getElementById("status").innerText =
         "⚠️ MetaMask not detected. Please install MetaMask to use this app.";
