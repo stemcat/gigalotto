@@ -306,13 +306,12 @@ export async function loadJackpotInfo() {
           console.log("No deposits found in subgraph data");
         }
 
-        // Get current balances instead of deposit history for leaderboard
-        const currentBalancesLeaderboard = await getCurrentBalancesLeaderboard(
-          newDeposits
-        );
+        // Temporarily use deposit history to avoid rate limiting
+        // TODO: Re-enable current balances when rate limiting is resolved
+        const leaderboardData = getDepositHistoryLeaderboard(newDeposits);
 
-        // Update leaderboard with current balances
-        updateLeaderboardFromData(currentBalancesLeaderboard.slice(0, 10));
+        // Update leaderboard with deposit history (temporary)
+        updateLeaderboardFromData(leaderboardData.slice(0, 10));
 
         // Cache the data - ETH only
         const cacheData = {
@@ -464,19 +463,37 @@ export async function tryDirectContractCall(debug = false) {
 
 // Calculate last 24h deposits in ETH
 function calculateLast24hDeposits(deposits) {
-  if (!deposits || deposits.length === 0) return "0.000000";
+  if (!deposits || deposits.length === 0) {
+    console.log("No deposits data for 24h calculation");
+    return "0.000000";
+  }
+
+  console.log("Calculating 24h deposits from:", deposits);
 
   const now = Math.floor(Date.now() / 1000);
   const oneDayAgo = now - 24 * 60 * 60;
 
+  console.log("Current time:", now);
+  console.log("24h ago:", oneDayAgo);
+
   let total = 0;
-  deposits.forEach((deposit) => {
+  deposits.forEach((deposit, index) => {
     const depositTime = Number(deposit.blockTimestamp);
+    const amount = parseFloat(ethers.formatEther(deposit.amount));
+
+    console.log(`Deposit ${index}:`, {
+      depositTime,
+      amount,
+      isWithin24h: depositTime >= oneDayAgo,
+      timeAgo: (now - depositTime) / 3600 + " hours ago",
+    });
+
     if (depositTime >= oneDayAgo) {
-      total += parseFloat(ethers.formatEther(deposit.amount));
+      total += amount;
     }
   });
 
+  console.log("Total 24h deposits:", total.toFixed(6), "ETH");
   return total.toFixed(6);
 }
 
@@ -599,11 +616,7 @@ async function updateUIWithEthData(totalPoolEth, last24hEth) {
   }
 
   // Get actual target from contract and calculate progress (pass USD values to avoid extra API calls)
-  await updateProgressBar(
-    totalPoolEth,
-    contract?.jackpotUsd,
-    contract?.targetUsd
-  );
+  await updateProgressBar(totalPoolEth);
 }
 
 // Function to get target and update progress bar
@@ -655,19 +668,8 @@ async function updateProgressBar(
     }
 
     if (progressText) {
-      // Calculate USD value of current pool
-      try {
-        const provider = new ethers.JsonRpcProvider(
-          "https://eth-sepolia.public.blastapi.io"
-        );
-        const contract = new ethers.Contract(contractAddress, abi, provider);
-        const jackpotUsd = await contract.getJackpotUsd();
-        const usdValue = (Number(jackpotUsd) / 1e8).toFixed(2);
-        progressText.textContent = `$${usdValue} USD`;
-      } catch (e) {
-        // Fallback to ETH display if USD fetch fails
-        progressText.textContent = `${parseFloat(totalPoolEth).toFixed(6)} ETH`;
-      }
+      // Use simple ETH display to avoid extra API calls
+      progressText.textContent = `${parseFloat(totalPoolEth).toFixed(6)} ETH`;
     }
   } catch (error) {
     console.error("Error updating progress bar:", error);
