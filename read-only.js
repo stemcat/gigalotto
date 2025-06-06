@@ -929,22 +929,22 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
     }
 
     // Resolve ENS names for addresses not in cache
-    // Optimize: Go directly to mainnet for ENS since that's where most ENS names are
+    // Use Sepolia network for ENS resolution since we're on Sepolia testnet
     const resolutionPromises = needResolution.map(async (depositor) => {
       const address = depositor.address;
       if (!address) return depositor;
 
       try {
-        // Go directly to mainnet for ENS resolution (faster and more reliable)
-        const mainnetProvider = new ethers.JsonRpcProvider(
-          "https://cloudflare-eth.com"
+        // Use Alchemy's Sepolia endpoint for ENS resolution (we're on Sepolia testnet)
+        const alchemySepoliaProvider = new ethers.JsonRpcProvider(
+          "https://eth-sepolia.g.alchemy.com/v2/demo"
         );
 
         // Add timeout to prevent hanging
         const ensName = await Promise.race([
-          mainnetProvider.lookupAddress(address),
+          alchemySepoliaProvider.lookupAddress(address),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("ENS lookup timeout")), 5000)
+            setTimeout(() => reject(new Error("ENS lookup timeout")), 3000)
           ),
         ]);
 
