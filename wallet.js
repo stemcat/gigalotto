@@ -254,8 +254,15 @@ export async function withdrawWinnings() {
 }
 
 // Handle regular withdrawals
+let isWithdrawing = false;
 export async function withdraw(amount) {
+  if (isWithdrawing) {
+    console.log("Withdrawal already in progress, ignoring duplicate click");
+    return;
+  }
+
   try {
+    isWithdrawing = true;
     if (!amount) {
       // Get the withdrawable amount if not provided
       const withdrawable = await contract.withdrawableAmounts(userAccount);
@@ -293,6 +300,8 @@ export async function withdraw(amount) {
       document.getElementById("status").innerText =
         "⚠️ Withdrawal failed: " + e.message;
     }
+  } finally {
+    isWithdrawing = false;
   }
 }
 
@@ -1378,11 +1387,15 @@ export async function initPage() {
       // Make connectAndDeposit available globally
       window.connectAndDeposit = connectAndDeposit;
 
-      // Add event listener for withdrawal button
+      // Add event listener for withdrawal button (remove any existing first)
       const withdrawFundsBtn = document.getElementById("withdrawFundsBtn");
       if (withdrawFundsBtn) {
-        withdrawFundsBtn.addEventListener("click", async function () {
-          console.log("Withdraw Funds button clicked");
+        // Remove any existing event listeners
+        withdrawFundsBtn.replaceWith(withdrawFundsBtn.cloneNode(true));
+        const newWithdrawBtn = document.getElementById("withdrawFundsBtn");
+
+        newWithdrawBtn.addEventListener("click", async function () {
+          console.log("Withdraw Funds button clicked - single handler");
           const withdrawAmountInput = document.getElementById("withdrawAmount");
           let amount = null;
 

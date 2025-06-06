@@ -302,8 +302,13 @@ export async function loadJackpotInfo() {
           console.log("No deposits found in subgraph data");
         }
 
-        // Update leaderboard (even if empty)
-        updateLeaderboardFromData(leaderboardData.slice(0, 10));
+        // Get current balances instead of deposit history for leaderboard
+        const currentBalancesLeaderboard = await getCurrentBalancesLeaderboard(
+          newDeposits
+        );
+
+        // Update leaderboard with current balances
+        updateLeaderboardFromData(currentBalancesLeaderboard.slice(0, 10));
 
         // Cache the data - ETH only
         const cacheData = {
@@ -469,6 +474,86 @@ function calculateLast24hDeposits(deposits) {
   });
 
   return total.toFixed(6);
+}
+
+// Get current balances for leaderboard (after withdrawals and fees)
+async function getCurrentBalancesLeaderboard(deposits) {
+  if (!deposits || deposits.length === 0) return [];
+
+  try {
+    const provider = new ethers.JsonRpcProvider(
+      "https://eth-sepolia.public.blastapi.io"
+    );
+    const contract = new ethers.Contract(contractAddress, abi, provider);
+
+    // Get unique depositors
+    const uniqueDepositors = [...new Set(deposits.map((d) => d.depositor))];
+    console.log(
+      "Getting current balances for",
+      uniqueDepositors.length,
+      "depositors"
+    );
+
+    // Get current withdrawable amounts for each depositor
+    const balancePromises = uniqueDepositors.map(async (address) => {
+      try {
+        const withdrawableAmount = await contract.withdrawableAmounts(address);
+        const balance = parseFloat(ethers.formatEther(withdrawableAmount));
+
+        if (balance > 0) {
+          return {
+            address,
+            amount: balance.toFixed(6),
+            timestamp: Math.floor(Date.now() / 1000), // Current timestamp
+          };
+        }
+        return null;
+      } catch (e) {
+        console.warn("Error getting balance for", address, e);
+        return null;
+      }
+    });
+
+    const balances = await Promise.all(balancePromises);
+
+    // Filter out null results and sort by amount
+    const validBalances = balances
+      .filter((b) => b !== null)
+      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+
+    console.log("Current balances leaderboard:", validBalances);
+    return validBalances;
+  } catch (error) {
+    console.error("Error getting current balances:", error);
+    // Fallback to deposit history if contract calls fail
+    return getDepositHistoryLeaderboard(deposits);
+  }
+}
+
+// Fallback: Get leaderboard from deposit history (old method)
+function getDepositHistoryLeaderboard(deposits) {
+  const depositorMap = {};
+  deposits.forEach((deposit) => {
+    const address = deposit.depositor;
+    const amount = ethers.formatEther(deposit.amount);
+
+    if (!depositorMap[address]) {
+      depositorMap[address] = {
+        address,
+        amount: 0,
+        timestamp: Number(deposit.blockTimestamp),
+      };
+    }
+
+    depositorMap[address].amount += parseFloat(amount);
+  });
+
+  return Object.values(depositorMap)
+    .sort((a, b) => b.amount - a.amount)
+    .map((entry) => ({
+      ...entry,
+      amount: entry.amount.toFixed(6),
+    }));
 }
 
 // Helper function to update UI with ETH-only data
