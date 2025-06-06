@@ -929,9 +929,12 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
 
     // Resolve ENS names for addresses not in cache
     // Use Sepolia network for ENS resolution since we're on Sepolia testnet
-    const resolutionPromises = needResolution.map(async (depositor) => {
+    const resolutionPromises = needResolution.map(async (depositor, index) => {
       const address = depositor.address;
       if (!address) return depositor;
+
+      // Add staggered delay to prevent rate limiting (500ms between requests)
+      await new Promise((resolve) => setTimeout(resolve, index * 500));
 
       try {
         // Use the same provider that's already connected and working
@@ -939,12 +942,16 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
         const ensName = await Promise.race([
           provider.lookupAddress(address),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("ENS lookup timeout")), 3000)
+            setTimeout(() => reject(new Error("ENS lookup timeout")), 5000)
           ),
         ]);
 
         // Cache the result (even if null)
         setCachedENS(address, ensName);
+
+        if (ensName) {
+          console.log(`✅ Found ENS name for ${address}: ${ensName}`);
+        }
 
         return {
           ...depositor,
@@ -952,7 +959,48 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
           needsResolution: false,
         };
       } catch (error) {
-        console.warn(`⚠️ ENS lookup failed for ${address}:`, error.message);
+        // If we get a rate limit error, try the backup provider
+        if (
+          error.message.includes("429") ||
+          error.message.includes("rate limit") ||
+          error.code === 429
+        ) {
+          console.warn(
+            `⚠️ Rate limited, trying backup provider for ${address}`
+          );
+          try {
+            const backupProvider = new ethers.JsonRpcProvider(
+              "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
+            );
+            const ensName = await Promise.race([
+              backupProvider.lookupAddress(address),
+              new Promise((_, reject) =>
+                setTimeout(
+                  () => reject(new Error("Backup ENS lookup timeout")),
+                  5000
+                )
+              ),
+            ]);
+
+            setCachedENS(address, ensName);
+            if (ensName) {
+              console.log(
+                `✅ Found ENS name via backup for ${address}: ${ensName}`
+              );
+            }
+
+            return {
+              ...depositor,
+              ensName: ensName || null,
+              needsResolution: false,
+            };
+          } catch (backupError) {
+            console.warn(`⚠️ Backup ENS lookup also failed for ${address}`);
+          }
+        } else {
+          console.warn(`⚠️ ENS lookup failed for ${address}:`, error.message);
+        }
+
         // Cache null result to avoid repeated failures
         setCachedENS(address, null);
         return {
