@@ -307,22 +307,30 @@ export async function loadJackpotInfo() {
         }
 
         // Get current balances for accurate leaderboard (with improved rate limiting)
+        console.log("🔍 Attempting to get current balances for leaderboard...");
         try {
           const currentBalancesLeaderboard =
             await getCurrentBalancesLeaderboard(newDeposits);
+
+          console.log(
+            "✅ Current balances result:",
+            currentBalancesLeaderboard
+          );
 
           if (
             currentBalancesLeaderboard &&
             currentBalancesLeaderboard.length > 0
           ) {
             // Use current balances (shows actual withdrawable amounts)
+            console.log("🏆 Using current balances for leaderboard");
             updateLeaderboardFromData(currentBalancesLeaderboard.slice(0, 10));
           } else {
             // Fallback to deposit history if current balances failed
+            console.log("📊 Fallback: Using deposit history for leaderboard");
             updateLeaderboardFromData(leaderboardData.slice(0, 10));
           }
         } catch (e) {
-          console.warn("Current balances failed, using deposit history:", e);
+          console.warn("❌ Current balances failed, using deposit history:", e);
           // Fallback to deposit history
           updateLeaderboardFromData(leaderboardData.slice(0, 10));
         }
@@ -516,9 +524,8 @@ async function getCurrentBalancesLeaderboard(deposits) {
   if (!deposits || deposits.length === 0) return [];
 
   try {
-    const provider = new ethers.JsonRpcProvider(
-      "https://eth-sepolia.public.blastapi.io"
-    );
+    // Use a different RPC endpoint to avoid rate limiting on the main one
+    const provider = new ethers.JsonRpcProvider("https://rpc.sepolia.org");
     const contract = new ethers.Contract(contractAddress, abi, provider);
 
     // Get unique depositors (limit to top 10 to avoid rate limiting)
@@ -643,9 +650,26 @@ async function updateProgressBar(
     // Try to get target from contract
     let targetEth = 10; // Default fallback
 
-    // Use fallback target to avoid extra API calls that cause 429 errors
-    // TODO: Get target from cached contract data when available
-    console.log("Using fallback target of 10 ETH to avoid rate limiting");
+    // Try to get target from contract with minimal calls
+    try {
+      // Use a different RPC endpoint to avoid rate limiting
+      const provider = new ethers.JsonRpcProvider("https://rpc.sepolia.org");
+      const contract = new ethers.Contract(contractAddress, abi, provider);
+
+      // Get target USD and current ETH price to convert to ETH
+      const targetUsd = await contract.TARGET_USD();
+      const jackpotUsd = await contract.getJackpotUsd();
+
+      // Calculate ETH equivalent of target (rough estimation)
+      if (Number(jackpotUsd) > 0 && Number(targetUsd) > 0) {
+        const currentEthPrice =
+          Number(jackpotUsd) / parseFloat(totalPoolEth) / 1e8;
+        targetEth = Number(targetUsd) / 1e8 / currentEthPrice;
+        console.log("📊 Calculated target:", targetEth.toFixed(6), "ETH");
+      }
+    } catch (e) {
+      console.log("Using fallback target of 10 ETH due to:", e.message);
+    }
 
     const percentComplete = (parseFloat(totalPoolEth) / targetEth) * 100;
 
