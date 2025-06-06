@@ -1,7 +1,7 @@
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
 
 // Contract details - export so they can be imported in read-only.js
-export const contractAddress = "0xC51569C3877Db750494adA6d1886a9765ab29dD5"; // Updated contract address
+export const contractAddress = "0xd466628a48437394ac7a58ca8CaF48E3Ce22733B"; // New contract with withdrawal functionality
 export const abi = [
   "function deposit() external payable",
   "function withdraw(uint256 amount) external",
@@ -307,7 +307,15 @@ export async function updateUI() {
     let timeUntilUnlock = 0;
 
     try {
+      console.log("Checking withdrawable amounts for user:", userAccount);
       withdrawable = await contract.withdrawableAmounts(userAccount);
+      console.log("Raw withdrawable amount (Wei):", withdrawable.toString());
+      console.log("Withdrawable amount (ETH):", ethers.formatEther(withdrawable));
+
+      // Also check userDeposits for comparison
+      const userDepositsAmount = await contract.userDeposits(userAccount);
+      console.log("User deposits amount (Wei):", userDepositsAmount.toString());
+      console.log("User deposits amount (ETH):", ethers.formatEther(userDepositsAmount));
 
       if (withdrawable > 0n) {
         // Check if lock period has passed
@@ -318,6 +326,18 @@ export async function updateUI() {
 
         canWithdraw = currentTime >= unlockTime;
         timeUntilUnlock = Math.max(0, unlockTime - currentTime);
+
+        console.log("Deposit timestamp:", Number(depositTimestamp));
+        console.log("Lock period:", Number(lockPeriod), "seconds");
+        console.log("Current time:", currentTime);
+        console.log("Unlock time:", unlockTime);
+      } else {
+        console.warn("No withdrawable amount found. This could mean:");
+        console.warn("1. User has no deposits");
+        console.warn("2. User already withdrew everything");
+        console.warn("3. Deposit was made before withdrawableAmounts was implemented");
+        console.warn("4. There's an issue with the contract state");
+      }
 
         console.log("Withdrawal check:", {
           withdrawable: ethers.formatEther(withdrawable),
@@ -339,6 +359,34 @@ export async function updateUI() {
       }
     } catch (e) {
       console.error("Error checking withdrawable amounts:", e);
+      console.log("Attempting fallback: using userDeposits as withdrawable amount");
+
+      // Fallback: if withdrawableAmounts fails, use userDeposits
+      // This handles cases where deposits were made before withdrawableAmounts was implemented
+      try {
+        const userDepositsAmount = await contract.userDeposits(userAccount);
+        if (userDepositsAmount > 0n) {
+          console.log("Using userDeposits as fallback withdrawable amount");
+          withdrawable = userDepositsAmount;
+
+          // Still check lock period
+          const depositTimestamp = await contract.depositTimestamps(userAccount);
+          const lockPeriod = await contract.LOCK_PERIOD();
+          const currentTime = Math.floor(Date.now() / 1000);
+          const unlockTime = Number(depositTimestamp) + Number(lockPeriod);
+
+          canWithdraw = currentTime >= unlockTime;
+          timeUntilUnlock = Math.max(0, unlockTime - currentTime);
+
+          console.log("Fallback withdrawal check:", {
+            withdrawable: ethers.formatEther(withdrawable),
+            canWithdraw,
+            timeUntilUnlock: timeUntilUnlock + " seconds"
+          });
+        }
+      } catch (fallbackError) {
+        console.error("Fallback also failed:", fallbackError);
+      }
     }
 
     // Calculate win chance
@@ -353,19 +401,28 @@ export async function updateUI() {
       winChanceDisplay = "< 0.000001%";
     }
 
-    // Update user dashboard
+    // Update user dashboard with better precision
     document.getElementById("userAddress").innerText = `${userAccount.slice(
       0,
       6
     )}...${userAccount.slice(-4)}`;
-    document.getElementById("userDeposit").innerText =
-      ethers.formatEther(deposit); // Removed extra ETH
+
+    // Show more decimal places for small amounts
+    const depositFormatted = Number(ethers.formatEther(deposit)).toFixed(8);
+    document.getElementById("userDeposit").innerText = depositFormatted;
     document.getElementById("winChance").innerText = winChanceDisplay;
 
-    // Update withdrawable amount if element exists
+    // Update withdrawable amount if element exists with better precision
     const withdrawableEl = document.getElementById("withdrawableAmount");
     if (withdrawableEl) {
-      withdrawableEl.innerText = ethers.formatEther(withdrawable);
+      const withdrawableFormatted = Number(
+        ethers.formatEther(withdrawable)
+      ).toFixed(8);
+      withdrawableEl.innerText = withdrawableFormatted;
+      console.log(
+        "Updated withdrawable amount display:",
+        withdrawableFormatted
+      );
     }
 
     // Show withdrawal section and update status

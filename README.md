@@ -5,11 +5,16 @@
 - Subgraph Studio: https://thegraph.com/studio/subgraph/gigalottosepolia
 - Query URL: https://api.studio.thegraph.com/query/113076/gigalottosepolia/version/latest
 
+## Contract Information
+
+- Contract Address: 0xd466628a48437394ac7a58ca8CaF48E3Ce22733B
+- Deployment Block: 8489136
+
 ### Example Query
 
 ```graphql
 {
-  contract(id: "0xC51569C3877Db750494adA6d1886a9765ab29dD5") {
+  contract(id: "0xd466628a48437394ac7a58ca8CaF48E3Ce22733B") {
     totalPool
     jackpotUsd
     targetUsd
@@ -19,9 +24,12 @@
       amount
       timestamp
     }
-    winner {
-      id
+    withdrawals(first: 20, orderBy: timestamp, orderDirection: desc) {
+      user
+      amount
+      timestamp
     }
+    winner
     winnerSelectedAt
   }
 }
