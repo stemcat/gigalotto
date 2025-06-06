@@ -411,6 +411,18 @@ export async function tryDirectContractCall(debug = false) {
       // Update progress bar with actual target
       await updateProgressBar(totalPoolEth);
 
+      // Update progress text with USD value
+      const progressText = document.getElementById("progressText");
+      if (progressText) {
+        try {
+          const jackpotUsd = await contract.getJackpotUsd();
+          const usdValue = (Number(jackpotUsd) / 1e8).toFixed(2);
+          progressText.textContent = `$${usdValue} USD`;
+        } catch (e) {
+          progressText.textContent = `${totalPoolEth} ETH`;
+        }
+      }
+
       // Cache the simple data
       const cacheData = {
         timestamp: Date.now(),
@@ -528,12 +540,19 @@ async function updateProgressBar(totalPoolEth) {
     }
 
     if (progressText) {
-      progressText.textContent = `${parseFloat(totalPoolEth).toFixed(
-        6
-      )} / ${targetEth.toFixed(6)} ETH (${Math.min(
-        percentComplete,
-        100
-      ).toFixed(1)}%)`;
+      // Calculate USD value of current pool
+      try {
+        const provider = new ethers.JsonRpcProvider(
+          "https://eth-sepolia.public.blastapi.io"
+        );
+        const contract = new ethers.Contract(contractAddress, abi, provider);
+        const jackpotUsd = await contract.getJackpotUsd();
+        const usdValue = (Number(jackpotUsd) / 1e8).toFixed(2);
+        progressText.textContent = `$${usdValue} USD`;
+      } catch (e) {
+        // Fallback to ETH display if USD fetch fails
+        progressText.textContent = `${parseFloat(totalPoolEth).toFixed(6)} ETH`;
+      }
     }
   } catch (error) {
     console.error("Error updating progress bar:", error);

@@ -136,8 +136,15 @@ export async function initWeb3() {
 }
 
 // Handle deposits
+let isDepositing = false;
 export async function connectAndDeposit() {
+  if (isDepositing) {
+    console.log("Deposit already in progress, ignoring duplicate click");
+    return;
+  }
+
   try {
+    isDepositing = true;
     // Get the amount from the input
     const amountInput = document.getElementById("ethAmount");
     const amount = amountInput.value;
@@ -195,6 +202,8 @@ export async function connectAndDeposit() {
       document.getElementById("status").innerText =
         "⚠️ Deposit failed: " + e.message;
     }
+  } finally {
+    isDepositing = false;
   }
 }
 
@@ -1314,15 +1323,13 @@ export async function initPage() {
 
       const depositBtn = document.getElementById("depositBtn");
       if (depositBtn) {
-        depositBtn.addEventListener("click", function () {
-          // Show deposit modal
-          const modal = document.getElementById("depositModal");
-          if (modal && modal.showModal) {
-            modal.showModal();
-          } else {
-            // Fallback if modal doesn't exist
-            connectAndDeposit();
-          }
+        // Remove any existing event listeners first
+        depositBtn.replaceWith(depositBtn.cloneNode(true));
+        const newDepositBtn = document.getElementById("depositBtn");
+
+        newDepositBtn.addEventListener("click", function () {
+          console.log("Deposit button clicked - single handler");
+          connectAndDeposit();
         });
       }
 
