@@ -248,29 +248,14 @@ export async function loadJackpotInfo() {
       const { contract, newDeposits } = responseData.data;
 
       if (contract) {
-        // Format values
+        // Format values - ETH only, no USD
         const totalPoolEth = ethers.formatEther(contract.totalPool);
-        const jackpotUsdFormatted = (Number(contract.jackpotUsd) / 1e8).toFixed(
-          2
-        );
-        const targetUsdFormatted = (Number(contract.targetUsd) / 1e8).toFixed(
-          2
-        );
-        const last24hUsdFormatted = (
-          Number(contract.last24hDepositUsd) / 1e8
-        ).toFixed(2);
 
-        // Calculate percentage
-        const percentComplete =
-          (Number(contract.jackpotUsd) * 100) / Number(contract.targetUsd);
+        // Calculate last 24h deposits in ETH from the deposits data
+        const last24hEth = calculateLast24hDeposits(newDeposits);
 
-        // Update UI with basic data
-        updateUIWithBasicData(
-          totalPoolEth,
-          jackpotUsdFormatted,
-          last24hUsdFormatted,
-          percentComplete
-        );
+        // Update UI with ETH-only data
+        await updateUIWithEthData(totalPoolEth, last24hEth);
 
         // Process deposits for leaderboard
         if (newDeposits && newDeposits.length > 0) {
@@ -311,14 +296,11 @@ export async function loadJackpotInfo() {
             timestamp: Number(d.blockTimestamp),
           }));
 
-          // Cache the data
+          // Cache the data - ETH only
           const cacheData = {
             timestamp: Date.now(),
             totalPoolEth,
-            jackpotUsdFormatted,
-            targetUsdFormatted,
-            last24hUsdFormatted,
-            percentComplete,
+            last24hEth,
             topDepositors: leaderboardData.slice(0, 10),
             allDeposits,
           };
@@ -396,69 +378,31 @@ export async function tryDirectContractCall(debug = false) {
       const progressFill = document.getElementById("progressFill");
       const currentWidth = progressFill ? progressFill.style.width : "0%";
 
-      // Update UI with this data
+      // Update UI with ETH data only
       const totalPoolEth = ethers.formatEther(totalPool);
+
+      // Simple ETH-only display
       document.getElementById(
         "jackpot"
       ).innerHTML = `<strong>${totalPoolEth} ETH</strong>`;
 
-      // Try to get more data
-      try {
-        const jackpotUsd = await contract.getJackpotUsd();
-        const targetUsd = await contract.TARGET_USD();
-        const last24hDepositUsd = await contract.last24hDepositUsd();
-
-        if (debug) {
-          console.log("Jackpot USD:", Number(jackpotUsd) / 1e8);
-          console.log("Target USD:", Number(targetUsd) / 1e8);
-          console.log("Last 24h USD:", Number(last24hDepositUsd) / 1e8);
-        }
-
-        // Calculate percentage
-        const percentComplete = (Number(jackpotUsd) * 100) / Number(targetUsd);
-
-        // Format values
-        const jackpotUsdFormatted = (Number(jackpotUsd) / 1e8).toFixed(2);
-        const last24hUsdFormatted = (Number(last24hDepositUsd) / 1e8).toFixed(
-          2
-        );
-
-        // Update jackpot display
-        document.getElementById(
-          "jackpot"
-        ).innerHTML = `<strong>${totalPoolEth} ETH ($${jackpotUsdFormatted})</strong>`;
-
-        // Update 24h deposits
-        document.getElementById("usd24h").innerText = last24hUsdFormatted;
-
-        // Update progress bar with animation to prevent flicker
-        if (progressFill) {
-          // Set transition temporarily to none
-          progressFill.style.transition = "none";
-          progressFill.style.width = currentWidth;
-
-          // Force a reflow
-          void progressFill.offsetWidth;
-
-          // Restore transition and set new width
-          progressFill.style.transition = "width 0.5s ease-in-out";
-          progressFill.style.width = `${Math.min(percentComplete, 100)}%`;
-        }
-
-        // Cache the data
-        const cacheData = {
-          timestamp: Date.now(),
-          totalPoolEth,
-          jackpotUsdFormatted,
-          targetUsdFormatted: (Number(targetUsd) / 1e8).toFixed(2),
-          last24hUsdFormatted,
-          percentComplete,
-        };
-
-        localStorage.setItem("contractData", JSON.stringify(cacheData));
-      } catch (dataError) {
-        if (debug) console.error("Error fetching additional data:", dataError);
+      // Set 24h deposits to 0 for now (will be calculated from subgraph data)
+      const eth24hElement = document.getElementById("eth24h");
+      if (eth24hElement) {
+        eth24hElement.innerText = "0.000000";
       }
+
+      // Update progress bar with actual target
+      await updateProgressBar(totalPoolEth);
+
+      // Cache the simple data
+      const cacheData = {
+        timestamp: Date.now(),
+        totalPoolEth,
+        last24hEth: "0.000000",
+      };
+
+      localStorage.setItem("contractData", JSON.stringify(cacheData));
 
       // Hide any error messages since we got some data
       showDataError(false);
@@ -481,62 +425,116 @@ export async function tryDirectContractCall(debug = false) {
   }
 }
 
-// Helper function to update UI with basic data
-function updateUIWithBasicData(
-  totalPoolEth,
-  jackpotUsdFormatted,
-  last24hUsdFormatted,
-  percentComplete
-) {
-  console.log("UI updated with basic data:", {
-    totalPoolEth,
-    jackpotUsdFormatted,
-    last24hUsdFormatted,
-    percentComplete,
+// Calculate last 24h deposits in ETH
+function calculateLast24hDeposits(deposits) {
+  if (!deposits || deposits.length === 0) return "0.000000";
+
+  const now = Math.floor(Date.now() / 1000);
+  const oneDayAgo = now - 24 * 60 * 60;
+
+  let total = 0;
+  deposits.forEach((deposit) => {
+    const depositTime = Number(deposit.blockTimestamp);
+    if (depositTime >= oneDayAgo) {
+      total += parseFloat(ethers.formatEther(deposit.amount));
+    }
   });
 
-  // Only update jackpot display if value changed
+  return total.toFixed(6);
+}
+
+// Helper function to update UI with ETH-only data
+async function updateUIWithEthData(totalPoolEth, last24hEth) {
+  console.log("UI updated with ETH data:", {
+    totalPoolEth,
+    last24hEth,
+  });
+
+  // Only update jackpot display if value changed - ETH only
   const jackpotElement = document.getElementById("jackpot");
-  const newJackpotContent = `<strong>${totalPoolEth} ETH ($${jackpotUsdFormatted})</strong>`;
+  const newJackpotContent = `<strong>${totalPoolEth} ETH</strong>`;
   if (jackpotElement && jackpotElement.innerHTML !== newJackpotContent) {
     jackpotElement.innerHTML = newJackpotContent;
   }
 
-  // Update 24h deposits in ETH instead of USD
-  const last24hEth = (
-    (parseFloat(last24hUsdFormatted) / parseFloat(jackpotUsdFormatted)) *
-    parseFloat(totalPoolEth)
-  ).toFixed(6);
-
+  // Update 24h deposits in ETH
   const eth24hElement = document.getElementById("eth24h");
   if (eth24hElement && eth24hElement.innerText !== last24hEth) {
     eth24hElement.innerText = last24hEth;
   }
 
-  // Only update progress bar if percentage changed
-  const progressFill = document.getElementById("progressFill");
-  const newWidth = `${Math.min(percentComplete, 100)}%`;
-  if (progressFill && progressFill.style.width !== newWidth) {
-    progressFill.style.width = newWidth;
-  }
+  // Get actual target from contract and calculate progress
+  await updateProgressBar(totalPoolEth);
+}
 
-  // Update status message based on percent complete
-  updateStatusMessageFromPercent(percentComplete);
+// Function to get target and update progress bar
+async function updateProgressBar(totalPoolEth) {
+  try {
+    // Try to get target from contract
+    let targetEth = 10; // Default fallback
+
+    try {
+      const provider = new ethers.JsonRpcProvider(
+        "https://eth-sepolia.public.blastapi.io"
+      );
+      const contract = new ethers.Contract(contractAddress, abi, provider);
+
+      // Get target USD and current ETH price to convert to ETH
+      const targetUsd = await contract.TARGET_USD();
+      const jackpotUsd = await contract.getJackpotUsd();
+
+      // Calculate ETH equivalent of target (rough estimation)
+      if (Number(jackpotUsd) > 0 && Number(targetUsd) > 0) {
+        const currentEthPrice =
+          Number(jackpotUsd) / parseFloat(totalPoolEth) / 1e8;
+        targetEth = Number(targetUsd) / 1e8 / currentEthPrice;
+        console.log("📊 Calculated target:", targetEth.toFixed(6), "ETH");
+      }
+    } catch (e) {
+      console.log("Using fallback target of 10 ETH");
+    }
+
+    const percentComplete = (parseFloat(totalPoolEth) / targetEth) * 100;
+
+    // Update progress bar with animation
+    const progressFill = document.getElementById("progressFill");
+    const progressText = document.getElementById("progressText");
+
+    if (progressFill) {
+      const newWidth = `${Math.min(percentComplete, 100)}%`;
+      if (progressFill.style.width !== newWidth) {
+        progressFill.style.width = newWidth;
+        progressFill.setAttribute(
+          "data-percent",
+          Math.min(percentComplete, 100).toFixed(1)
+        );
+      }
+    }
+
+    if (progressText) {
+      progressText.textContent = `${parseFloat(totalPoolEth).toFixed(
+        6
+      )} / ${targetEth.toFixed(6)} ETH (${Math.min(
+        percentComplete,
+        100
+      ).toFixed(1)}%)`;
+    }
+  } catch (error) {
+    console.error("Error updating progress bar:", error);
+  }
 }
 
 // Use cached data if available
-function useCachedDataIfAvailable() {
+async function useCachedDataIfAvailable() {
   const cachedData = localStorage.getItem("contractData");
   if (cachedData) {
     try {
       const data = JSON.parse(cachedData);
       console.log("Using cached data from", new Date(data.timestamp));
 
-      updateUIWithBasicData(
+      await updateUIWithEthData(
         data.totalPoolEth || "0",
-        data.jackpotUsdFormatted || "0.00",
-        data.last24hUsdFormatted || "0.00",
-        data.percentComplete || 0
+        data.last24hEth || "0.000000"
       );
 
       if (data.topDepositors && data.topDepositors.length > 0) {
@@ -895,26 +893,29 @@ function updateStatusMessageFromPercent(percentComplete) {
 }
 
 // Set up auto-refresh
-export function setupAutoRefresh() {
-  // Initial load
+// Load data only on user actions - no auto-refresh
+export function loadInitialData() {
+  console.log("Loading initial data...");
   loadJackpotInfo();
+}
 
-  // Refresh every 30 seconds but preserve timeframe
-  setInterval(() => {
-    // Get current timeframe before refresh
-    const currentTimeframe =
-      localStorage.getItem("selectedTimeframe") || "allTime";
+// Function to refresh data manually (called on user actions)
+export function refreshData() {
+  console.log("Refreshing data due to user action...");
 
-    // Load data
-    loadJackpotInfo().then(() => {
-      // Ensure timeframe is preserved if it's not allTime
-      if (currentTimeframe !== "allTime") {
-        setTimeout(() => {
-          changeTimeframe(currentTimeframe);
-        }, 100);
-      }
-    });
-  }, 30000);
+  // Get current timeframe before refresh
+  const currentTimeframe =
+    localStorage.getItem("selectedTimeframe") || "allTime";
+
+  // Load data
+  loadJackpotInfo().then(() => {
+    // Ensure timeframe is preserved if it's not allTime
+    if (currentTimeframe !== "allTime") {
+      setTimeout(() => {
+        changeTimeframe(currentTimeframe);
+      }, 100);
+    }
+  });
 }
 
 // Add this function to show/hide the error message
@@ -1016,14 +1017,12 @@ import { debugWalletConnection } from "./wallet.js";
 export async function initializeReadOnly() {
   console.log("Initializing read-only functionality");
 
-  // Set up auto-refresh
-  setupAutoRefresh();
-
-  // Load jackpot info immediately
-  await loadJackpotInfo();
+  // Load initial data (no auto-refresh)
+  loadInitialData();
 
   // Make the function available globally
   window.initializeReadOnly = initializeReadOnly;
+  window.refreshData = refreshData;
 }
 
 // Make loadJackpotInfo available globally

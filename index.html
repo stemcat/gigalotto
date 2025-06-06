@@ -128,52 +128,93 @@
 
       .progress-bar {
         width: 100%;
-        height: 20px;
-        background-color: #000;
-        border: 2px solid #444;
-        margin: 10px 0;
-        overflow: hidden;
+        height: 30px;
+        background: #1a1a1a;
+        border: 2px solid #333;
+        border-radius: 15px;
+        margin: 15px 0;
         position: relative;
+        overflow: hidden;
+        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
       }
 
       .progress-fill {
         height: 100%;
+        width: 0%;
         background: linear-gradient(
-          to right,
-          #00ff00 0%,
-          #66ff00 25%,
+          90deg,
+          #00ff41 0%,
+          #00ff41 25%,
           #ffff00 50%,
-          #ff6600 75%,
+          #ff8000 75%,
           #ff0000 100%
         );
-        transition: width 0.5s ease-in-out;
+        border-radius: 13px;
         position: relative;
+        transition: width 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.5),
+          inset 0 2px 0 rgba(255, 255, 255, 0.3),
+          inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+        animation: pulse 2s infinite;
       }
 
-      .progress-fill::after {
+      .progress-fill::before {
         content: "";
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: repeating-linear-gradient(
-          45deg,
-          transparent,
-          transparent 5px,
-          rgba(0, 0, 0, 0.3) 5px,
-          rgba(0, 0, 0, 0.3) 10px
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.2) 50%,
+          transparent 100%
         );
-        animation: moveStripesLeftToRight 1s linear infinite;
+        animation: shimmer 2s infinite;
       }
 
-      @keyframes moveStripesLeftToRight {
+      .progress-fill::after {
+        content: attr(data-percent) "%";
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        color: #000;
+        font-weight: bold;
+        font-size: 12px;
+        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 10px rgba(0, 255, 65, 0.5),
+            inset 0 2px 0 rgba(255, 255, 255, 0.3),
+            inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 20px rgba(0, 255, 65, 0.8),
+            inset 0 2px 0 rgba(255, 255, 255, 0.4),
+            inset 0 -2px 0 rgba(0, 0, 0, 0.4);
+        }
+      }
+
+      @keyframes shimmer {
         0% {
-          background-position: 0 0;
+          transform: translateX(-100%);
         }
         100% {
-          background-position: 14px 0;
+          transform: translateX(100%);
         }
+      }
+
+      .progress-text {
+        text-align: center;
+        margin-top: 5px;
+        font-size: 12px;
+        color: #ccc;
+        font-family: "Courier New", monospace;
       }
 
       .wallet {
@@ -425,7 +466,15 @@
           <span id="holdTimer">--:--:--</span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+          <div
+            class="progress-fill"
+            id="progressFill"
+            style="width: 0%"
+            data-percent="0"
+          ></div>
+        </div>
+        <div class="progress-text" id="progressText">
+          0.000000 / 10.000000 ETH (0.0%)
         </div>
         <div class="deposits-24h" style="margin-top: 15px">
           <strong>🔥 Last 24h Deposits:</strong>
@@ -547,8 +596,8 @@
             to win proportional to your contribution.
           </p>
           <p>
-            <strong>2. Target Goal</strong> - The jackpot must reach $2.2B USD
-            value to be eligible for a draw.
+            <strong>2. Target Goal</strong> - The jackpot must reach 10 ETH to
+            be eligible for a draw.
           </p>
           <p>
             <strong>3. Hold Period</strong> - Once the target is reached, it
