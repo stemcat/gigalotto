@@ -1345,8 +1345,8 @@ export async function initPage() {
         });
       }
 
-      // Listen for account changes
-      window.ethereum.on("accountsChanged", handleAccountsChanged);
+      // Set up account change listeners
+      setupAccountChangeListeners();
 
       // Check if already connected using the proper function
       await checkIfConnected();

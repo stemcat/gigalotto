@@ -40,18 +40,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       };
     }
 
-    // Set up deposit button
-    const depositBtn = document.getElementById("depositBtn");
-    if (depositBtn) {
-      depositBtn.onclick = function () {
-        console.log("Deposit button clicked");
-        if (window.connectAndDeposit) {
-          window.connectAndDeposit();
-        } else {
-          console.error("connectAndDeposit function not available");
-        }
-      };
-    }
+    // Deposit button is handled in wallet.js initPage()
 
     // Import wallet.js first to ensure it's loaded
     await import("./wallet.js").then(async (walletModule) => {

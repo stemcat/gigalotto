@@ -247,7 +247,10 @@ export async function loadJackpotInfo() {
     if (responseData && responseData.data) {
       const { contract, newDeposits } = responseData.data;
 
-      if (contract) {
+      console.log("Contract data:", contract);
+      console.log("New deposits data:", newDeposits);
+
+      if (contract && contract.totalPool) {
         // Format values - ETH only, no USD
         const totalPoolEth = ethers.formatEther(contract.totalPool);
 
@@ -258,6 +261,9 @@ export async function loadJackpotInfo() {
         await updateUIWithEthData(totalPoolEth, last24hEth);
 
         // Process deposits for leaderboard
+        let leaderboardData = [];
+        let allDeposits = [];
+
         if (newDeposits && newDeposits.length > 0) {
           const deposits = newDeposits;
 
@@ -279,45 +285,55 @@ export async function loadJackpotInfo() {
           });
 
           // Convert to array and sort
-          const leaderboardData = Object.values(depositorMap)
+          leaderboardData = Object.values(depositorMap)
             .sort((a, b) => b.amount - a.amount)
             .map((entry) => ({
               ...entry,
               amount: entry.amount.toFixed(6),
             }));
 
-          // Update leaderboard
-          updateLeaderboardFromData(leaderboardData.slice(0, 10));
-
           // Cache all deposits for timeframe filtering
-          const allDeposits = deposits.map((d) => ({
+          allDeposits = deposits.map((d) => ({
             depositor: d.depositor,
             amount: ethers.formatEther(d.amount),
             timestamp: Number(d.blockTimestamp),
           }));
-
-          // Cache the data - ETH only
-          const cacheData = {
-            timestamp: Date.now(),
-            totalPoolEth,
-            last24hEth,
-            topDepositors: leaderboardData.slice(0, 10),
-            allDeposits,
-          };
-
-          localStorage.setItem("contractData", JSON.stringify(cacheData));
+        } else {
+          console.log("No deposits found in subgraph data");
         }
+
+        // Update leaderboard (even if empty)
+        updateLeaderboardFromData(leaderboardData.slice(0, 10));
+
+        // Cache the data - ETH only
+        const cacheData = {
+          timestamp: Date.now(),
+          totalPoolEth,
+          last24hEth,
+          topDepositors: leaderboardData.slice(0, 10),
+          allDeposits,
+        };
+
+        localStorage.setItem("contractData", JSON.stringify(cacheData));
 
         // Hide error message if it was showing
         showDataError(false);
 
         return true;
+      } else {
+        console.log(
+          "No contract data found in subgraph, trying direct contract call"
+        );
+        return await tryDirectContractCall();
       }
+    } else if (responseData && responseData.errors) {
+      console.error("Subgraph returned errors:", responseData.errors);
+      return await tryDirectContractCall();
     }
 
     // If we get here, subgraph returned data but not in expected format
     console.error("Subgraph data format unexpected:", responseData);
-    throw new Error("Unexpected data format from subgraph");
+    return await tryDirectContractCall();
   } catch (e) {
     console.error("Error fetching from subgraph:", e);
     // If we get here, subgraph failed, try direct contract call
