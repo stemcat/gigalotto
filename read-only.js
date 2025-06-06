@@ -307,30 +307,22 @@ export async function loadJackpotInfo() {
         }
 
         // Get current balances for accurate leaderboard (with improved rate limiting)
-        console.log("🔍 Attempting to get current balances for leaderboard...");
         try {
           const currentBalancesLeaderboard =
             await getCurrentBalancesLeaderboard(newDeposits);
-
-          console.log(
-            "✅ Current balances result:",
-            currentBalancesLeaderboard
-          );
 
           if (
             currentBalancesLeaderboard &&
             currentBalancesLeaderboard.length > 0
           ) {
             // Use current balances (shows actual withdrawable amounts)
-            console.log("🏆 Using current balances for leaderboard");
             updateLeaderboardFromData(currentBalancesLeaderboard.slice(0, 10));
           } else {
             // Fallback to deposit history if current balances failed
-            console.log("📊 Fallback: Using deposit history for leaderboard");
             updateLeaderboardFromData(leaderboardData.slice(0, 10));
           }
         } catch (e) {
-          console.warn("❌ Current balances failed, using deposit history:", e);
+          console.warn("Current balances failed, using deposit history:", e);
           // Fallback to deposit history
           updateLeaderboardFromData(leaderboardData.slice(0, 10));
         }
@@ -524,8 +516,9 @@ async function getCurrentBalancesLeaderboard(deposits) {
   if (!deposits || deposits.length === 0) return [];
 
   try {
-    // Use a different RPC endpoint to avoid rate limiting on the main one
-    const provider = new ethers.JsonRpcProvider("https://rpc.sepolia.org");
+    const provider = new ethers.JsonRpcProvider(
+      "https://eth-sepolia.public.blastapi.io"
+    );
     const contract = new ethers.Contract(contractAddress, abi, provider);
 
     // Get unique depositors (limit to top 10 to avoid rate limiting)
@@ -550,6 +543,7 @@ async function getCurrentBalancesLeaderboard(deposits) {
           // Stagger calls within batch
           await new Promise((resolve) => setTimeout(resolve, index * 200));
 
+          // Get withdrawable amount (this is AFTER fees have been deducted)
           const withdrawableAmount = await contract.withdrawableAmounts(
             address
           );
@@ -650,26 +644,9 @@ async function updateProgressBar(
     // Try to get target from contract
     let targetEth = 10; // Default fallback
 
-    // Try to get target from contract with minimal calls
-    try {
-      // Use a different RPC endpoint to avoid rate limiting
-      const provider = new ethers.JsonRpcProvider("https://rpc.sepolia.org");
-      const contract = new ethers.Contract(contractAddress, abi, provider);
-
-      // Get target USD and current ETH price to convert to ETH
-      const targetUsd = await contract.TARGET_USD();
-      const jackpotUsd = await contract.getJackpotUsd();
-
-      // Calculate ETH equivalent of target (rough estimation)
-      if (Number(jackpotUsd) > 0 && Number(targetUsd) > 0) {
-        const currentEthPrice =
-          Number(jackpotUsd) / parseFloat(totalPoolEth) / 1e8;
-        targetEth = Number(targetUsd) / 1e8 / currentEthPrice;
-        console.log("📊 Calculated target:", targetEth.toFixed(6), "ETH");
-      }
-    } catch (e) {
-      console.log("Using fallback target of 10 ETH due to:", e.message);
-    }
+    // Use fallback target to avoid extra API calls that cause 429 errors
+    // TODO: Get target from cached contract data when available
+    console.log("Using fallback target of 10 ETH to avoid rate limiting");
 
     const percentComplete = (parseFloat(totalPoolEth) / targetEth) * 100;
 
@@ -689,8 +666,19 @@ async function updateProgressBar(
     }
 
     if (progressText) {
-      // Use simple ETH display to avoid extra API calls
-      progressText.textContent = `${parseFloat(totalPoolEth).toFixed(6)} ETH`;
+      // Calculate USD value of current pool
+      try {
+        const provider = new ethers.JsonRpcProvider(
+          "https://eth-sepolia.public.blastapi.io"
+        );
+        const contract = new ethers.Contract(contractAddress, abi, provider);
+        const jackpotUsd = await contract.getJackpotUsd();
+        const usdValue = (Number(jackpotUsd) / 1e8).toFixed(2);
+        progressText.textContent = `$${usdValue} USD`;
+      } catch (e) {
+        // Fallback to ETH display if USD fetch fails
+        progressText.textContent = `${parseFloat(totalPoolEth).toFixed(6)} ETH`;
+      }
     }
   } catch (error) {
     console.error("Error updating progress bar:", error);
