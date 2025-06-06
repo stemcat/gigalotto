@@ -306,10 +306,7 @@ export async function loadJackpotInfo() {
           console.log("No deposits found in subgraph data");
         }
 
-        // Temporarily use deposit history to avoid rate limiting
-        // TODO: Re-enable current balances when rate limiting is resolved
-        const leaderboardData = getDepositHistoryLeaderboard(newDeposits);
-
+        // Use the existing leaderboardData that was already calculated above
         // Update leaderboard with deposit history (temporary)
         updateLeaderboardFromData(leaderboardData.slice(0, 10));
 
