@@ -11,6 +11,10 @@ const abi = [
   "function getEntry(uint256 index) view returns (address user, uint256 cumulative)",
   "function userDeposits(address user) view returns (uint256)",
   "function collectedFees() view returns (uint256)",
+  "function withdrawableAmounts(address) view returns (uint256)",
+  "function userDeposits(address) view returns (uint256)",
+  "function depositTimestamps(address) view returns (uint256)",
+  "function LOCK_PERIOD() view returns (uint256)",
 ];
 
 // Update the subgraph endpoint with your actual deployed subgraph URL
@@ -486,40 +490,58 @@ async function getCurrentBalancesLeaderboard(deposits) {
     );
     const contract = new ethers.Contract(contractAddress, abi, provider);
 
-    // Get unique depositors
-    const uniqueDepositors = [...new Set(deposits.map((d) => d.depositor))];
+    // Get unique depositors (limit to top 20 to avoid rate limiting)
+    const uniqueDepositors = [
+      ...new Set(deposits.map((d) => d.depositor)),
+    ].slice(0, 20);
     console.log(
       "Getting current balances for",
       uniqueDepositors.length,
-      "depositors"
+      "depositors (limited to avoid rate limits)"
     );
 
-    // Get current withdrawable amounts for each depositor
-    const balancePromises = uniqueDepositors.map(async (address) => {
-      try {
-        const withdrawableAmount = await contract.withdrawableAmounts(address);
-        const balance = parseFloat(ethers.formatEther(withdrawableAmount));
+    // Process in batches to avoid rate limiting
+    const batchSize = 5;
+    const validBalances = [];
 
-        if (balance > 0) {
-          return {
-            address,
-            amount: balance.toFixed(6),
-            timestamp: Math.floor(Date.now() / 1000), // Current timestamp
-          };
+    for (let i = 0; i < uniqueDepositors.length; i += batchSize) {
+      const batch = uniqueDepositors.slice(i, i + batchSize);
+
+      const balancePromises = batch.map(async (address) => {
+        try {
+          // Add small delay between calls
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          const withdrawableAmount = await contract.withdrawableAmounts(
+            address
+          );
+          const balance = parseFloat(ethers.formatEther(withdrawableAmount));
+
+          if (balance > 0) {
+            return {
+              address,
+              amount: balance.toFixed(6),
+              timestamp: Math.floor(Date.now() / 1000),
+            };
+          }
+          return null;
+        } catch (e) {
+          console.warn("Error getting balance for", address, e);
+          return null;
         }
-        return null;
-      } catch (e) {
-        console.warn("Error getting balance for", address, e);
-        return null;
+      });
+
+      const batchResults = await Promise.all(balancePromises);
+      validBalances.push(...batchResults.filter((b) => b !== null));
+
+      // Delay between batches
+      if (i + batchSize < uniqueDepositors.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
-    });
+    }
 
-    const balances = await Promise.all(balancePromises);
-
-    // Filter out null results and sort by amount
-    const validBalances = balances
-      .filter((b) => b !== null)
-      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+    // Sort by amount
+    validBalances.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
 
     console.log("Current balances leaderboard:", validBalances);
     return validBalances;
@@ -576,12 +598,20 @@ async function updateUIWithEthData(totalPoolEth, last24hEth) {
     eth24hElement.innerText = last24hEth;
   }
 
-  // Get actual target from contract and calculate progress
-  await updateProgressBar(totalPoolEth);
+  // Get actual target from contract and calculate progress (pass USD values to avoid extra API calls)
+  await updateProgressBar(
+    totalPoolEth,
+    contract?.jackpotUsd,
+    contract?.targetUsd
+  );
 }
 
 // Function to get target and update progress bar
-async function updateProgressBar(totalPoolEth) {
+async function updateProgressBar(
+  totalPoolEth,
+  jackpotUsd = null,
+  targetUsd = null
+) {
   try {
     // Try to get target from contract
     let targetEth = 10; // Default fallback

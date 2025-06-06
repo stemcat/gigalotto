@@ -364,12 +364,18 @@ export async function updateUI() {
         ethers.formatEther(userDepositsAmount)
       );
 
+      // Declare variables outside the if block
+      let depositTimestamp = 0;
+      let lockPeriod = 0;
+      let currentTime = 0;
+      let unlockTime = 0;
+
       if (withdrawable > 0n) {
         // Check if lock period has passed
-        const depositTimestamp = await contract.depositTimestamps(userAccount);
-        const lockPeriod = await contract.LOCK_PERIOD();
-        const currentTime = Math.floor(Date.now() / 1000);
-        const unlockTime = Number(depositTimestamp) + Number(lockPeriod);
+        depositTimestamp = await contract.depositTimestamps(userAccount);
+        lockPeriod = await contract.LOCK_PERIOD();
+        currentTime = Math.floor(Date.now() / 1000);
+        unlockTime = Number(depositTimestamp) + Number(lockPeriod);
 
         canWithdraw = currentTime >= unlockTime;
         timeUntilUnlock = Math.max(0, unlockTime - currentTime);
@@ -378,17 +384,7 @@ export async function updateUI() {
         console.log("Lock period:", Number(lockPeriod), "seconds");
         console.log("Current time:", currentTime);
         console.log("Unlock time:", unlockTime);
-      } else {
-        console.warn("No withdrawable amount found. This could mean:");
-        console.warn("1. User has no deposits");
-        console.warn("2. User already withdrew everything");
-        console.warn(
-          "3. Deposit was made before withdrawableAmounts was implemented"
-        );
-        console.warn("4. There's an issue with the contract state");
-      }
 
-      if (withdrawable > 0n) {
         console.log("Withdrawal check:", {
           withdrawable: ethers.formatEther(withdrawable),
           depositTimestamp: Number(depositTimestamp),
@@ -406,6 +402,14 @@ export async function updateUI() {
             (timeUntilUnlock / 60).toFixed(1) +
             " minutes)",
         });
+      } else {
+        console.warn("No withdrawable amount found. This could mean:");
+        console.warn("1. User has no deposits");
+        console.warn("2. User already withdrew everything");
+        console.warn(
+          "3. Deposit was made before withdrawableAmounts was implemented"
+        );
+        console.warn("4. There's an issue with the contract state");
       }
     } catch (e) {
       console.error("Error checking withdrawable amounts:", e);
