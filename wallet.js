@@ -322,11 +322,19 @@ export async function updateUI() {
         console.log("Withdrawal check:", {
           withdrawable: ethers.formatEther(withdrawable),
           depositTimestamp: Number(depositTimestamp),
-          lockPeriod: Number(lockPeriod),
+          lockPeriod:
+            Number(lockPeriod) +
+            " seconds (" +
+            Number(lockPeriod) / 60 +
+            " minutes)",
           currentTime,
           unlockTime,
           canWithdraw,
-          timeUntilUnlock,
+          timeUntilUnlock:
+            timeUntilUnlock +
+            " seconds (" +
+            (timeUntilUnlock / 60).toFixed(1) +
+            " minutes)",
         });
       }
     } catch (e) {
@@ -386,16 +394,12 @@ export async function updateUI() {
             withdrawBtn.style.display = "none";
           }
           if (withdrawStatus) {
-            const days = Math.floor(timeUntilUnlock / (24 * 60 * 60));
-            const hours = Math.floor(
-              (timeUntilUnlock % (24 * 60 * 60)) / (60 * 60)
-            );
-            const minutes = Math.floor((timeUntilUnlock % (60 * 60)) / 60);
+            const minutes = Math.floor(timeUntilUnlock / 60);
+            const seconds = timeUntilUnlock % 60;
 
             let timeText = "";
-            if (days > 0) timeText += `${days}d `;
-            if (hours > 0) timeText += `${hours}h `;
-            if (minutes > 0) timeText += `${minutes}m`;
+            if (minutes > 0) timeText += `${minutes}m `;
+            if (seconds > 0 || minutes === 0) timeText += `${seconds}s`;
 
             withdrawStatus.innerText = `⏳ Funds locked for ${timeText}`;
             withdrawStatus.className = "status-waiting";
