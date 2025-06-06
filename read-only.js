@@ -306,9 +306,26 @@ export async function loadJackpotInfo() {
           console.log("No deposits found in subgraph data");
         }
 
-        // Use the existing leaderboardData that was already calculated above
-        // Update leaderboard with deposit history (temporary)
-        updateLeaderboardFromData(leaderboardData.slice(0, 10));
+        // Get current balances for accurate leaderboard (with improved rate limiting)
+        try {
+          const currentBalancesLeaderboard =
+            await getCurrentBalancesLeaderboard(newDeposits);
+
+          if (
+            currentBalancesLeaderboard &&
+            currentBalancesLeaderboard.length > 0
+          ) {
+            // Use current balances (shows actual withdrawable amounts)
+            updateLeaderboardFromData(currentBalancesLeaderboard.slice(0, 10));
+          } else {
+            // Fallback to deposit history if current balances failed
+            updateLeaderboardFromData(leaderboardData.slice(0, 10));
+          }
+        } catch (e) {
+          console.warn("Current balances failed, using deposit history:", e);
+          // Fallback to deposit history
+          updateLeaderboardFromData(leaderboardData.slice(0, 10));
+        }
 
         // Cache the data - ETH only
         const cacheData = {
@@ -504,27 +521,27 @@ async function getCurrentBalancesLeaderboard(deposits) {
     );
     const contract = new ethers.Contract(contractAddress, abi, provider);
 
-    // Get unique depositors (limit to top 20 to avoid rate limiting)
+    // Get unique depositors (limit to top 10 to avoid rate limiting)
     const uniqueDepositors = [
       ...new Set(deposits.map((d) => d.depositor)),
-    ].slice(0, 20);
+    ].slice(0, 10);
     console.log(
       "Getting current balances for",
       uniqueDepositors.length,
       "depositors (limited to avoid rate limits)"
     );
 
-    // Process in batches to avoid rate limiting
-    const batchSize = 5;
+    // Process in smaller batches with longer delays to avoid rate limiting
+    const batchSize = 3;
     const validBalances = [];
 
     for (let i = 0; i < uniqueDepositors.length; i += batchSize) {
       const batch = uniqueDepositors.slice(i, i + batchSize);
 
-      const balancePromises = batch.map(async (address) => {
+      const balancePromises = batch.map(async (address, index) => {
         try {
-          // Add small delay between calls
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          // Stagger calls within batch
+          await new Promise((resolve) => setTimeout(resolve, index * 200));
 
           const withdrawableAmount = await contract.withdrawableAmounts(
             address
@@ -548,9 +565,9 @@ async function getCurrentBalancesLeaderboard(deposits) {
       const batchResults = await Promise.all(balancePromises);
       validBalances.push(...batchResults.filter((b) => b !== null));
 
-      // Delay between batches
+      // Longer delay between batches
       if (i + batchSize < uniqueDepositors.length) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
 
@@ -626,26 +643,9 @@ async function updateProgressBar(
     // Try to get target from contract
     let targetEth = 10; // Default fallback
 
-    try {
-      const provider = new ethers.JsonRpcProvider(
-        "https://eth-sepolia.public.blastapi.io"
-      );
-      const contract = new ethers.Contract(contractAddress, abi, provider);
-
-      // Get target USD and current ETH price to convert to ETH
-      const targetUsd = await contract.TARGET_USD();
-      const jackpotUsd = await contract.getJackpotUsd();
-
-      // Calculate ETH equivalent of target (rough estimation)
-      if (Number(jackpotUsd) > 0 && Number(targetUsd) > 0) {
-        const currentEthPrice =
-          Number(jackpotUsd) / parseFloat(totalPoolEth) / 1e8;
-        targetEth = Number(targetUsd) / 1e8 / currentEthPrice;
-        console.log("📊 Calculated target:", targetEth.toFixed(6), "ETH");
-      }
-    } catch (e) {
-      console.log("Using fallback target of 10 ETH");
-    }
+    // Use fallback target to avoid extra API calls that cause 429 errors
+    // TODO: Get target from cached contract data when available
+    console.log("Using fallback target of 10 ETH to avoid rate limiting");
 
     const percentComplete = (parseFloat(totalPoolEth) / targetEth) * 100;
 

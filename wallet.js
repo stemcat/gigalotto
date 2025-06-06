@@ -504,6 +504,14 @@ export async function updateUI() {
             withdrawStatus.innerText = "✅ Funds available for withdrawal";
             withdrawStatus.className = "status-ready";
           }
+
+          // Set default withdrawal amount to full available amount
+          const withdrawAmountInput = document.getElementById("withdrawAmount");
+          if (withdrawAmountInput) {
+            const fullAmount = ethers.formatEther(withdrawable);
+            withdrawAmountInput.value = fullAmount;
+            withdrawAmountInput.placeholder = `Max: ${fullAmount} ETH`;
+          }
         } else {
           if (withdrawBtn) {
             withdrawBtn.style.display = "none";
