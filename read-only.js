@@ -87,11 +87,10 @@ export async function verifyContractAddress() {
   console.log("Verifying contract address:", contractAddress);
 
   try {
-    // Try multiple RPC endpoints
+    // Try multiple RPC endpoints (removed BlastAPI due to rate limiting)
     const rpcEndpoints = [
-      "https://eth-sepolia.public.blastapi.io",
-      "https://rpc.sepolia.org",
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura - reliable
+      "https://rpc.sepolia.org", // Backup
     ];
 
     let provider;
@@ -371,11 +370,10 @@ export async function tryDirectContractCall(debug = false) {
     if (debug) console.log("Attempting direct contract call");
     if (debug) console.log("Contract address:", contractAddress);
 
-    // Try multiple RPC endpoints in case one fails
+    // Try multiple RPC endpoints in case one fails (removed BlastAPI due to rate limiting)
     const rpcEndpoints = [
-      "https://eth-sepolia.public.blastapi.io",
-      "https://rpc.sepolia.org",
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura endpoint
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura endpoint - reliable
+      "https://rpc.sepolia.org", // Backup
     ];
 
     let provider;
@@ -891,10 +889,9 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
   }
 
   try {
-    // Use only working CORS-friendly RPC endpoints for Sepolia
+    // Use only reliable RPC endpoints for Sepolia (removed BlastAPI due to rate limiting)
     const rpcEndpoints = [
-      "https://eth-sepolia.public.blastapi.io", // This works without CORS
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura backup
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura - reliable
     ];
 
     let provider;
@@ -952,43 +949,6 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
           needsResolution: false,
         };
       } catch (error) {
-        // If we get a rate limit error, try the backup provider
-        if (
-          error.message.includes("429") ||
-          error.message.includes("rate limit") ||
-          error.code === 429
-        ) {
-          try {
-            const backupProvider = new ethers.JsonRpcProvider(
-              "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-            );
-            const ensName = await Promise.race([
-              backupProvider.lookupAddress(address),
-              new Promise((_, reject) =>
-                setTimeout(
-                  () => reject(new Error("Backup ENS lookup timeout")),
-                  5000
-                )
-              ),
-            ]);
-
-            setCachedENS(address, ensName);
-            if (ensName) {
-              console.log(
-                `✅ Found ENS name via backup for ${address}: ${ensName}`
-              );
-            }
-
-            return {
-              ...depositor,
-              ensName: ensName || null,
-              needsResolution: false,
-            };
-          } catch (backupError) {
-            // Silently fail and cache null result
-          }
-        }
-
         // Cache null result to avoid repeated failures
         setCachedENS(address, null);
         return {
