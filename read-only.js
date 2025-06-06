@@ -896,10 +896,11 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
   console.log(`Resolving ${needResolution.length} ENS names not in cache`);
 
   try {
-    // Use multiple RPC endpoints for better reliability
+    // Use CORS-friendly RPC endpoints, prioritizing mainnet for ENS
     const rpcEndpoints = [
-      "https://rpc.sepolia.org",
-      "https://eth-sepolia.public.blastapi.io",
+      "https://eth-sepolia.public.blastapi.io", // This works without CORS
+      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
+      "https://cloudflare-eth.com", // Mainnet for ENS (most ENS names are here)
     ];
 
     let provider;
@@ -928,28 +929,24 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
     }
 
     // Resolve ENS names for addresses not in cache
+    // Optimize: Go directly to mainnet for ENS since that's where most ENS names are
     const resolutionPromises = needResolution.map(async (depositor) => {
       const address = depositor.address;
       if (!address) return depositor;
 
       try {
-        // First check Sepolia ENS
-        let ensName = await provider.lookupAddress(address);
+        // Go directly to mainnet for ENS resolution (faster and more reliable)
+        const mainnetProvider = new ethers.JsonRpcProvider(
+          "https://cloudflare-eth.com"
+        );
 
-        if (!ensName) {
-          // If no ENS name on Sepolia, try mainnet
-          try {
-            const mainnetProvider = new ethers.JsonRpcProvider(
-              "https://cloudflare-eth.com"
-            );
-            ensName = await mainnetProvider.lookupAddress(address);
-          } catch (mainnetError) {
-            console.error(
-              `Error checking mainnet ENS for ${address}:`,
-              mainnetError
-            );
-          }
-        }
+        // Add timeout to prevent hanging
+        const ensName = await Promise.race([
+          mainnetProvider.lookupAddress(address),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("ENS lookup timeout")), 5000)
+          ),
+        ]);
 
         // Cache the result (even if null)
         setCachedENS(address, ensName);
