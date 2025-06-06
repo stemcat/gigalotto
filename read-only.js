@@ -871,8 +871,6 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
     return [];
   }
 
-  console.log("Resolving ENS names before display for:", topDepositors);
-
   // First, check cache for all addresses
   const depositorsWithCachedENS = topDepositors.map((depositor) => {
     const cachedENS = getCachedENS(depositor.address);
@@ -889,11 +887,8 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
   );
 
   if (needResolution.length === 0) {
-    console.log("All ENS names found in cache!");
     return depositorsWithCachedENS;
   }
-
-  console.log(`Resolving ${needResolution.length} ENS names not in cache`);
 
   try {
     // Use only working CORS-friendly RPC endpoints for Sepolia
@@ -908,17 +903,15 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
     // Try each endpoint until one works
     for (const endpoint of rpcEndpoints) {
       try {
-        console.log(`Trying RPC endpoint for ENS: ${endpoint}`);
         provider = new ethers.JsonRpcProvider(endpoint);
 
         // Test the connection
         await provider.getBlockNumber();
-        console.log(`Connected to RPC for ENS resolution: ${endpoint}`);
-
         connected = true;
         break;
       } catch (rpcError) {
-        console.error(`Failed to connect to ${endpoint} for ENS:`, rpcError);
+        // Silently try next endpoint
+        continue;
       }
     }
 
@@ -965,9 +958,6 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
           error.message.includes("rate limit") ||
           error.code === 429
         ) {
-          console.warn(
-            `⚠️ Rate limited, trying backup provider for ${address}`
-          );
           try {
             const backupProvider = new ethers.JsonRpcProvider(
               "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
@@ -995,10 +985,8 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
               needsResolution: false,
             };
           } catch (backupError) {
-            console.warn(`⚠️ Backup ENS lookup also failed for ${address}`);
+            // Silently fail and cache null result
           }
-        } else {
-          console.warn(`⚠️ ENS lookup failed for ${address}:`, error.message);
         }
 
         // Cache null result to avoid repeated failures
@@ -1024,7 +1012,6 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
       return depositor;
     });
 
-    console.log("ENS resolution complete with caching");
     return finalResult;
   } catch (error) {
     console.error("Error setting up ENS resolution:", error);
