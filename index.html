@@ -121,14 +121,15 @@
 
       .progress-bar {
         width: 100%;
-        height: 30px;
-        background: #1a1a1a;
-        border: 2px solid #333;
-        border-radius: 15px;
+        height: 25px;
+        background: #000;
+        border: 2px solid #00ff00;
         margin: 15px 0;
         position: relative;
         overflow: hidden;
-        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.5),
+          inset 0 0 10px rgba(0, 0, 0, 0.8);
+        font-family: "Press Start 2P", monospace;
       }
 
       .progress-fill {
@@ -136,19 +137,15 @@
         width: 0%;
         background: linear-gradient(
           90deg,
-          #00ff41 0%,
-          #00ff41 25%,
-          #ffff00 50%,
-          #ff8000 75%,
-          #ff0000 100%
+          #00ff00 0%,
+          #00ff41 50%,
+          #00ff00 100%
         );
-        border-radius: 13px;
         position: relative;
-        transition: width 1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        box-shadow: 0 0 10px rgba(0, 255, 65, 0.5),
-          inset 0 2px 0 rgba(255, 255, 255, 0.3),
-          inset 0 -2px 0 rgba(0, 0, 0, 0.3);
-        animation: pulse 2s infinite;
+        transition: width 0.8s ease-out;
+        box-shadow: 0 0 15px rgba(0, 255, 0, 0.8),
+          inset 0 2px 0 rgba(255, 255, 255, 0.3);
+        animation: retro-glow 1.5s infinite alternate;
       }
 
       .progress-fill::before {
@@ -158,42 +155,41 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: linear-gradient(
+        background: repeating-linear-gradient(
           90deg,
-          transparent 0%,
-          rgba(255, 255, 255, 0.2) 50%,
-          transparent 100%
+          transparent 0px,
+          transparent 8px,
+          rgba(255, 255, 255, 0.1) 8px,
+          rgba(255, 255, 255, 0.1) 16px
         );
-        animation: shimmer 2s infinite;
+        animation: scan-lines 2s linear infinite;
       }
 
       .progress-fill::after {
         content: attr(data-percent) "%";
         position: absolute;
         top: 50%;
-        right: 10px;
+        right: 8px;
         transform: translateY(-50%);
         color: #000;
         font-weight: bold;
-        font-size: 12px;
-        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        font-size: 10px;
+        text-shadow: 0 0 3px rgba(0, 255, 0, 0.8);
+        font-family: "Press Start 2P", monospace;
       }
 
-      @keyframes pulse {
-        0%,
+      @keyframes retro-glow {
+        0% {
+          box-shadow: 0 0 15px rgba(0, 255, 0, 0.8),
+            inset 0 2px 0 rgba(255, 255, 255, 0.3);
+        }
         100% {
-          box-shadow: 0 0 10px rgba(0, 255, 65, 0.5),
-            inset 0 2px 0 rgba(255, 255, 255, 0.3),
-            inset 0 -2px 0 rgba(0, 0, 0, 0.3);
-        }
-        50% {
-          box-shadow: 0 0 20px rgba(0, 255, 65, 0.8),
-            inset 0 2px 0 rgba(255, 255, 255, 0.4),
-            inset 0 -2px 0 rgba(0, 0, 0, 0.4);
+          box-shadow: 0 0 25px rgba(0, 255, 0, 1), 0 0 35px rgba(0, 255, 0, 0.6),
+            inset 0 2px 0 rgba(255, 255, 255, 0.4);
         }
       }
 
-      @keyframes shimmer {
+      @keyframes scan-lines {
         0% {
           transform: translateX(-100%);
         }
@@ -613,6 +609,7 @@
       <p>&copy; 2025 GIGA LOTTO Project</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script type="module" src="main.js"></script>
 
     <script>
@@ -630,6 +627,19 @@
 
       // Make the function available globally
       window.validateMinAmount = validateMinAmount;
+
+      // Share on Twitter function
+      function shareOnTwitter() {
+        const text =
+          "I just joined the $2.2B #GigaLotto on-chain lottery! 🤑💰 The biggest crypto lottery in history! Join me: ";
+        const url = window.location.href;
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+          text
+        )}&url=${encodeURIComponent(url)}`;
+        window.open(twitterUrl, "_blank");
+      }
+
+      window.shareOnTwitter = shareOnTwitter;
     </script>
 
     <dialog

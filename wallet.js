@@ -173,12 +173,26 @@ export async function connectAndDeposit() {
 
     // Send transaction
     const tx = await contract.deposit({ value: amountWei });
-    document.getElementById("status").innerText =
-      "⏳ Deposit transaction sent...";
+    const statusEl = document.getElementById("status");
+    statusEl.innerText = "🔥 TRANSACTION SENT! CONFIRMING...";
+    statusEl.className = "hot-flame";
 
     // Wait for confirmation
     await tx.wait();
-    document.getElementById("status").innerText = "✅ Deposit successful!";
+    const statusEl = document.getElementById("status");
+    statusEl.innerText = "✅ Deposit successful!";
+    statusEl.className = ""; // Remove hot-flame class
+
+    // Trigger confetti effect
+    triggerConfetti();
+
+    // Show share modal after a short delay
+    setTimeout(() => {
+      const shareModal = document.getElementById("shareModal");
+      if (shareModal && shareModal.showModal) {
+        shareModal.showModal();
+      }
+    }, 1000);
 
     // Update UI and refresh data
     updateUI();
@@ -1121,11 +1135,40 @@ window.debugWalletConnection = debugWalletConnection;
 // Helper function for confetti effect
 function triggerConfetti() {
   if (typeof confetti === "function") {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-    });
+    // Multiple bursts for more excitement
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    function randomInRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    const interval = setInterval(function () {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+
+      // Left side
+      confetti(
+        Object.assign({}, defaults, {
+          particleCount,
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+        })
+      );
+
+      // Right side
+      confetti(
+        Object.assign({}, defaults, {
+          particleCount,
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+        })
+      );
+    }, 250);
   } else {
     console.warn("Confetti library not loaded");
   }
