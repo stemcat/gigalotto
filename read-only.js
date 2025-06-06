@@ -533,15 +533,32 @@ async function updateLeaderboardFromData(
     return;
   }
 
-  // Show loading state while resolving ENS names
+  // Check if this is the first load or if depositors have changed
+  const currentAddresses = topDepositors.map((d) => d.address).join(",");
+  const lastAddresses = leaderboardEl.getAttribute("data-last-addresses") || "";
+
+  if (currentAddresses === lastAddresses) {
+    // Same depositors, no need to reload
+    console.log("Depositors unchanged, skipping update");
+    return;
+  }
+
+  // Show loading state with spinning dots while resolving ENS names
   leaderboardEl.innerHTML = `
     <div class="leaderboard-row empty">
-      <span colspan="3">Loading depositors...</span>
+      <span colspan="3">
+        <div class="loading-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </span>
     </div>
   `;
 
-  // Resolve ENS names first, then display
-  const depositorsWithENS = await resolveENSNamesBeforeDisplay(topDepositors);
+  // Temporarily disable ENS resolution to avoid rate limiting
+  // const depositorsWithENS = await resolveENSNamesBeforeDisplay(topDepositors);
+  const depositorsWithENS = topDepositors;
 
   let html = ``;
   depositorsWithENS.forEach((entry, index) => {
@@ -572,6 +589,9 @@ async function updateLeaderboardFromData(
   });
 
   leaderboardEl.innerHTML = html;
+
+  // Store the current addresses to avoid unnecessary updates
+  leaderboardEl.setAttribute("data-last-addresses", currentAddresses);
 }
 
 // Resolve ENS names before displaying (to prevent address->ENS flashing)
@@ -789,8 +809,8 @@ window.refreshENSNames = async function () {
   }
 };
 
-// Call refreshENSNames on page load to set any known ENS names
-setTimeout(window.refreshENSNames, 2000);
+// Temporarily disable automatic ENS refresh to avoid rate limiting
+// setTimeout(window.refreshENSNames, 2000);
 
 // Filter entries by timeframe
 function filterEntriesByTimeframe(entries, timeframe) {

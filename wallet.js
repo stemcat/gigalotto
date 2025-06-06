@@ -380,9 +380,13 @@ export async function checkWinnerAndDraw() {
 
       // Show admin section
       let adminSection = document.getElementById("adminSection");
+      console.log("Existing admin section found:", !!adminSection);
+
       if (!adminSection) {
         // Create admin section if it doesn't exist
         const dashboard = document.getElementById("userDashboard");
+        console.log("User dashboard found:", !!dashboard);
+
         if (dashboard) {
           console.log("Creating admin section");
           const adminDiv = document.createElement("div");
@@ -415,18 +419,36 @@ export async function checkWinnerAndDraw() {
           );
           dashboard.after(adminDiv);
 
+          console.log("Admin section inserted into DOM");
+
+          // Verify the elements exist
+          setTimeout(() => {
+            const feesElement = document.getElementById("collectedFees");
+            const withdrawBtn = document.getElementById("withdrawFeesBtn");
+            console.log("Fees element found after insert:", !!feesElement);
+            console.log("Withdraw button found after insert:", !!withdrawBtn);
+
+            if (feesElement) {
+              console.log(
+                "Current fees element content:",
+                feesElement.innerText
+              );
+            }
+          }, 100);
+
           // Check if draw is possible
           await checkCanDraw();
 
-          // Update fees display immediately after creation
+          // Update fees display immediately after creation with longer delay
           setTimeout(async () => {
+            console.log("Attempting to update admin fees display...");
             await updateAdminFeesDisplay();
-          }, 500);
+          }, 1000);
 
-          // Set up periodic fee updates every 15 seconds (less frequent to avoid rate limits)
+          // Set up periodic fee updates every 20 seconds (less frequent to avoid rate limits)
           setInterval(async () => {
             await updateAdminFeesDisplay();
-          }, 15000);
+          }, 20000);
         }
       } else {
         // Make sure admin section is visible
@@ -852,7 +874,7 @@ export async function checkCanDraw() {
   }
 }
 
-// Make admin functions available globally
+// Make admin functions available globally (use the exported functions)
 window.checkCanDraw = checkCanDraw;
 window.withdrawFees = withdrawFees;
 window.selectNewWinner = selectNewWinner;
@@ -924,6 +946,29 @@ export async function updateAdminFeesDisplay() {
 
 // Make updateAdminFeesDisplay available globally
 window.updateAdminFeesDisplay = updateAdminFeesDisplay;
+
+// Add a test function to verify admin functions work
+window.testAdminFunctions = function () {
+  console.log("Testing admin functions...");
+  console.log("checkCanDraw:", typeof window.checkCanDraw);
+  console.log("withdrawFees:", typeof window.withdrawFees);
+  console.log("selectNewWinner:", typeof window.selectNewWinner);
+  console.log("requestDraw:", typeof window.requestDraw);
+  console.log("updateAdminFeesDisplay:", typeof window.updateAdminFeesDisplay);
+
+  // Test if admin elements exist
+  const adminSection = document.getElementById("adminSection");
+  const feesElement = document.getElementById("collectedFees");
+  const withdrawBtn = document.getElementById("withdrawFeesBtn");
+
+  console.log("Admin section exists:", !!adminSection);
+  console.log("Fees element exists:", !!feesElement);
+  console.log("Withdraw button exists:", !!withdrawBtn);
+
+  if (feesElement) {
+    console.log("Current fees display:", feesElement.innerText);
+  }
+};
 
 // Make admin functions available globally
 window.requestDraw = async function () {
