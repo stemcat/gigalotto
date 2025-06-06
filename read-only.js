@@ -556,8 +556,9 @@ async function updateLeaderboardFromData(
     </div>
   `;
 
-  // Re-enable ENS resolution with rate limiting protection
-  const depositorsWithENS = await resolveENSNamesBeforeDisplay(topDepositors);
+  // Temporarily disable ENS resolution for faster loading
+  // const depositorsWithENS = await resolveENSNamesBeforeDisplay(topDepositors);
+  const depositorsWithENS = topDepositors;
 
   let html = ``;
   depositorsWithENS.forEach((entry, index) => {
@@ -602,11 +603,8 @@ async function resolveENSNamesBeforeDisplay(topDepositors) {
   console.log("Resolving ENS names before display for:", topDepositors);
 
   try {
-    // Use Sepolia testnet RPC endpoints that support CORS (avoid rate-limited endpoints)
-    const rpcEndpoints = [
-      "https://rpc.sepolia.org",
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
-    ];
+    // Use only reliable Sepolia testnet RPC endpoints
+    const rpcEndpoints = ["https://rpc.sepolia.org"];
 
     let provider;
     let connected = false;
@@ -688,11 +686,8 @@ async function resolveENSNames(topDepositors) {
   console.log("Resolving ENS names for:", topDepositors);
 
   try {
-    // Use Sepolia testnet RPC endpoints that support CORS (avoid rate-limited endpoints)
-    const rpcEndpoints = [
-      "https://rpc.sepolia.org",
-      "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161", // Public Infura
-    ];
+    // Use only reliable Sepolia testnet RPC endpoints
+    const rpcEndpoints = ["https://rpc.sepolia.org"];
 
     let provider;
     let connected = false;

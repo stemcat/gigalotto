@@ -362,7 +362,7 @@ export async function updateUI() {
 
     // Show withdrawal section and update status
     const withdrawalSection = document.getElementById("withdrawalSection");
-    const withdrawBtn = document.getElementById("withdrawBtn");
+    const withdrawBtn = document.getElementById("withdrawFundsBtn"); // Correct ID from HTML
     const withdrawStatus = document.getElementById("withdrawStatus");
 
     if (withdrawalSection) {
@@ -1237,6 +1237,22 @@ export async function initPage() {
 
       // Make connectAndDeposit available globally
       window.connectAndDeposit = connectAndDeposit;
+
+      // Add event listener for withdrawal button
+      const withdrawFundsBtn = document.getElementById("withdrawFundsBtn");
+      if (withdrawFundsBtn) {
+        withdrawFundsBtn.addEventListener("click", async function () {
+          console.log("Withdraw Funds button clicked");
+          const withdrawAmountInput = document.getElementById("withdrawAmount");
+          let amount = null;
+
+          if (withdrawAmountInput && withdrawAmountInput.value) {
+            amount = ethers.parseEther(withdrawAmountInput.value);
+          }
+
+          await withdraw(amount);
+        });
+      }
 
       // Check if already connected
       const accounts = await window.ethereum.request({
